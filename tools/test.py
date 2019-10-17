@@ -14,10 +14,13 @@ loop = asyncio.get_event_loop()
 tasks = []
 session = ''
 for i in ['http://www.baidu.com', 'http://www.baidu.com/s?wd=hello', 'http://www.baidu.com/s?wd=xixi']:
+    print('消费:', i)
     s, _ = loop.run_until_complete(quest(i, session))
+    # print(_.decode())
     if not session:
         session = s
     # tasks.append(session.get(i))
 # print(loop.run_until_complete(asyncio.wait(tasks)))
+
 loop.run_until_complete(session.close())
 loop.close()

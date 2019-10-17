@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import aiohttp
+import threading
 
 
 class Request:
@@ -13,34 +14,42 @@ class Request:
         if request:
             self.request = request
         async with asyncio.Semaphore(200):
-            self.connector = aiohttp.TCPConnector(verify_ssl=self.request.verify)
-            if self.request.session:
-                session = self.request.session
-            else:
+            if not self.connector:
+                self.connector = aiohttp.TCPConnector(ssl=self.request.verify)
+            if not self.request.session:
                 session = aiohttp.ClientSession(connector=self.connector)
                 self.request.session = session
-            res = await session.get(self.request.url)
-            return await res.read()
+            res = await self.__getattribute__(self.request.method)()
+            return await res.read(), res
 
     async def get(self):
         return await self.request.session.get(self.request.url)
 
+    @staticmethod
+    async def get_tasks(coroutine):
+        return await asyncio.create_task(coroutine)
+
     async def exit(self):
         await self.request.session.close()
-        # await self.connector.close()
+        await self.connector.close()
 
-    def make_tasks(self, request=None):
-        return self.loop.create_task(self.quest(request))
-
-    def run(self, tasks):
-        print(self.loop.run_until_complete(asyncio.wait(tasks)))
+    def runs_forever(self, loop):
+        asyncio.set_event_loop(loop)
+        loop.run_forever()
 
 
-loop = asyncio.get_event_loop()
+loop = asyncio.new_event_loop()
+
 r = Request(type("request", (), {'method': 'get', 'url': 'http://www.baidu.com', 'verify': False, 'session': None}), loop)
 tasks = []
+thread = threading.Thread(target=r.runs_forever, args=(loop,))
+thread.setDaemon(True)
+thread.run()
 for i in ['http://www.baidu.com', 'http://www.baidu.com/s?wd=hello', 'http://www.baidu.com/s?wd=xixi']:
-    tasks.append(r.quest(type("request", (), {'method': 'get', 'url': i, 'verify': False, 'session': None})))
-loop.run_until_complete(asyncio.wait(tasks))
+    print('消费：', i)
+    task = r.quest(type("request", (), {'method': 'get', 'url': i, 'verify': False, 'session': None}))
+    future = asyncio.run_coroutine_threadsafe(task, loop)
+    print(future)
+# print(x.result())
 loop.run_until_complete(r.request.session.close())
 loop.close()
