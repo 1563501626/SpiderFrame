@@ -19,6 +19,7 @@ class Request:
             if not self.request.session:
                 session = aiohttp.ClientSession(connector=self.connector)
                 self.request.session = session
+            await asyncio.sleep(5)
             res = await self.__getattribute__(self.request.method)()
             return await res.read(), res
 
@@ -38,18 +39,21 @@ class Request:
         loop.run_forever()
 
 
-loop = asyncio.new_event_loop()
+loop = asyncio.get_event_loop()
 
 r = Request(type("request", (), {'method': 'get', 'url': 'http://www.baidu.com', 'verify': False, 'session': None}), loop)
 tasks = []
 thread = threading.Thread(target=r.runs_forever, args=(loop,))
 thread.setDaemon(True)
-thread.run()
+thread.start()
+f = []
 for i in ['http://www.baidu.com', 'http://www.baidu.com/s?wd=hello', 'http://www.baidu.com/s?wd=xixi']:
     print('消费：', i)
-    task = r.quest(type("request", (), {'method': 'get', 'url': i, 'verify': False, 'session': None}))
-    future = asyncio.run_coroutine_threadsafe(task, loop)
-    print(future)
-# print(x.result())
-loop.run_until_complete(r.request.session.close())
-loop.close()
+    f.append(r.quest(type("request", (), {'method': 'get', 'url': i, 'verify': False, 'session': None})))
+fs = asyncio.run_coroutine_threadsafe(asyncio.wait(f), loop)
+print(list(map(lambda x: x.result(), list(fs.result()[0]))))
+
+print()
+
+
+asyncio.run_coroutine_threadsafe(r.request.session.close(), loop)
