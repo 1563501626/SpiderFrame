@@ -12,21 +12,25 @@ class Engine:
         self.sql_port = None
         self.sql_user = None
         self.sql_pwd = None
+        self.sql_db = None
+        self.async_num = 1
 
     def init(self):
         """初始化"""
-        self.mq_host = config.mq_host
-        self.mq_port = config.mq_port
-        self.mq_user = config.mq_user
-        self.mq_pwd = config.mq_pwd
-        self.sql_host = config.sql_host
-        self.sql_port = config.sql_port
-        self.sql_user = config.sql_user
-        self.sql_pwd = config.sql_pwd
-
-        serious = ['mq_host', 'mq_port', 'mq_user', 'mq_pwd', 'sql_host', 'sql_port', 'sql_user', 'sql_pwd']
+        # 配置文件初始化
+        serious = ['mq_host', 'mq_port', 'mq_user', 'mq_pwd', 'sql_host', 'sql_port', 'sql_user', 'sql_pwd', 'sql_db']
         for i in serious:
-            pass
+            if hasattr(self, i) and getattr(self, i) is None:
+                attr = getattr(config, i)
+                setattr(self, i, attr if attr else None)
+
+        # 创建连接
+
+
+
+    def mq_connection(self):
+
+
 
 
 if __name__ == '__main__':
