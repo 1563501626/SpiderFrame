@@ -8,14 +8,15 @@ class RabbitMq:
 
     def mq_connection(self):
         """初始化"""
-        credentials = pika.PlainCredentials(username=self.engine.user, password=self.engine.pwd)
+        credentials = pika.PlainCredentials(username=self.engine.mq_user, password=self.engine.mq_pwd)
         connector = pika.BlockingConnection(
-            pika.ConnectionParameters(host=self.engine.host, port=self.engine.port, credentials=credentials)
+            pika.ConnectionParameters(host=self.engine.mq_host, port=self.engine.mq_port, credentials=credentials)
         )
         channel = connector.channel()
         return channel
 
-    def publish(self, channel, request, queue):
+    @staticmethod
+    def publish(channel, request, queue):
         """生产"""
         channel.queue_declare(queue=queue, durable=True)  # 队列持久化
         channel.basic_publish(
@@ -25,17 +26,19 @@ class RabbitMq:
             properties=pika.BasicProperties(delivery_mode=2)  # 消息持久化
         )
 
-    def callback(self, ch, method, properties, body):
+    @staticmethod
+    def callback(ch, method, properties, body):
         """回调函数"""
         print(body)
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
-    def consume(self, channel, queue):
+    @staticmethod
+    def consume(channel, queue, callback):
         """消费"""
         channel.queue_declare(queue=queue, durable=True)  # 队列持久化
         channel.basic_consume(
             queue=queue,
-            on_message_callback=self.callback,
+            on_message_callback=callback,
             auto_ack=False)
 
 

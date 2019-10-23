@@ -10,5 +10,6 @@ mq_pwd = 'guest'
 sql_host = 'localhost'
 sql_port = 3306
 sql_user = 'root'
-sql_pwd = ''
+sql_pwd = '123456'
+sql_db = 'frametest'
 
