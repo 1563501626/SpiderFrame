@@ -10,16 +10,16 @@ class Request:
         self.loop = loop
         self.connector = None
 
+    def mk_session(self):
+        self.connector = aiohttp.TCPConnector(ssl=self.request.verify)
+        session = aiohttp.ClientSession(connector=self.connector)
+        self.request.session = session
+
     async def quest(self, request):
         if request:
             self.request = request
         async with asyncio.Semaphore(200):
-            if not self.connector:
-                self.connector = aiohttp.TCPConnector(ssl=self.request.verify)
-            if not self.request.session:
-                session = aiohttp.ClientSession(connector=self.connector)
-                self.request.session = session
-            await asyncio.sleep(5)
+            await asyncio.sleep(2)
             res = await self.__getattribute__(self.request.method)()
             return await res.read(), res
 
@@ -39,9 +39,10 @@ class Request:
         loop.run_forever()
 
 
-loop = asyncio.get_event_loop()
-
-r = Request(type("request", (), {'method': 'get', 'url': 'http://www.baidu.com', 'verify': False, 'session': None}), loop)
+loop = asyncio.new_event_loop()
+request = type("request", (), {'method': 'get', 'url': 'http://www.baidu.com', 'verify': False, 'session': None})
+r = Request(request, loop)
+r.mk_session()
 tasks = []
 thread = threading.Thread(target=r.run_forever, args=(loop,))
 thread.setDaemon(True)
@@ -49,7 +50,7 @@ thread.start()
 f = []
 for i in ['http://www.baidu.com', 'http://www.baidu.com/s?wd=hello', 'http://www.baidu.com/s?wd=xixi']:
     print('消费：', i)
-    f.append(r.quest(type("request", (), {'method': 'get', 'url': i, 'verify': False, 'session': None})))
+    f.append(r.quest()))
 fs = asyncio.run_coroutine_threadsafe(asyncio.wait(f), loop)
 print(list(map(lambda x: x.result(), list(fs.result()[0]))))
 print()

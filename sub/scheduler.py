@@ -33,17 +33,20 @@ class RabbitMq:
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     @staticmethod
-    def consume(channel, queue, callback):
+    def consume(channel, queue, callback, prefetch_count):
         """消费"""
         channel.queue_declare(queue=queue, durable=True)  # 队列持久化
+        channel.basic_qos(prefetch_count=prefetch_count)
         channel.basic_consume(
             queue=queue,
             on_message_callback=callback,
             auto_ack=False)
+        channel.start_consuming()
 
 
 if __name__ == '__main__':
-    r = RabbitMq(type('engine', (), {'user': 'guest', 'pwd': 'guest', 'host': 'localhost', 'port': 5672}))
+    r = RabbitMq(type('engine', (), {'mq_user': 'guest', 'mq_pwd': 'guest', 'mq_host': 'localhost', 'mq_port': 5672}))
     c = r.mq_connection()
-    r.publish(c, type('r', (), {'data': 1}), 'abcdef')
-    r.consume(c, 'abcdef')
+    for i in range(10):
+        r.publish(c, str(i), 'abcdef')
+    print(r.consume(c, 'abcdef', r.callback, 2))

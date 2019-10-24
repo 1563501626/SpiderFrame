@@ -47,7 +47,7 @@ class Engine:
         print("生产：%s" % js.dumps(request))
 
     def consume(self):
-        RabbitMq.consume(self.channel, self.queue_name, callback='parse_detail')
+        RabbitMq.consume(self.channel, self.queue_name, callback='callback', prefetch_count=self.async_num)
 
     def start_request(self):
         for i in range(10):
@@ -57,10 +57,11 @@ class Engine:
     def parse(self, response):
         pass
 
-    def parse_detail(self, ch, method, properties, body):
+    def callback(self, ch, method, properties, body):
         """回调函数"""
-        print(body)
-        ch.basic_ack(delivery_tag=method.delivery_tag)
+        if body:
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            return body.decode()
 
     def main(self):
         """main"""
@@ -80,7 +81,7 @@ class Engine:
         if self.way and self.way == 'm':
             self.start_request()
         elif self.way and self.way == 'w':
-            pass
+            body = js.loads(self.consume())
 
         self.channel.close()
         self.cursor.close()
