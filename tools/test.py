@@ -26,11 +26,13 @@ async def quest(url, session=None):
 # loop.run_until_complete(session.close())
 # loop.close()
 # sql_pool = PooledDB(creator=pymysql, host='', user=self.sql_user, passwd=self.sql_pwd, db=self.sql_db, port=self.sql_port)
-import pickle
-from io import BytesIO
-class A:
-    a = 1
 
-a = A()
-x = pickle.dump(a)
-print()
+def a(**kwargs):
+    print(kwargs)
+    print(*kwargs)
+    print(**kwargs)
+
+def b(a=1, b=2, c=3):
+    print(a)
+
+b({'a': 1, 'b': 2, 'c': 3})

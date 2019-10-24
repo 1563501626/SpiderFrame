@@ -10,18 +10,23 @@ class Request:
         self.loop = loop
         self.connector = None
 
+    async def quest(self, url, method='get', data=None, json=None, headers=None, params=None,verify=True, proxies=None, allow_redirects=True):
+        async with asyncio.Semaphore(200):
+            connector = aiohttp.TCPConnector(ssl=verify)
+            with aiohttp.ClientSession(connector=connector) as session:
+                if method == 'get':
+                    res = await session.get(url, params=params, headers=headers, allow_redirects=allow_redirects)
+                elif method == 'post':
+                    res = await session.post(url, data, json=None, params=None,verify=True, proxies=None)
+                else:
+                    raise
+                session.get()
+                return await res.read(), res
+
     def mk_session(self):
         self.connector = aiohttp.TCPConnector(ssl=self.request.verify)
         session = aiohttp.ClientSession(connector=self.connector)
-        self.request.session = session
-
-    async def quest(self, request):
-        if request:
-            self.request = request
-        async with asyncio.Semaphore(200):
-            await asyncio.sleep(2)
-            res = await self.__getattribute__(self.request.method)()
-            return await res.read(), res
+        return session
 
     async def get(self):
         return await self.request.session.get(self.request.url)
@@ -34,15 +39,16 @@ class Request:
         await self.request.session.close()
         await self.connector.close()
 
-    def run_forever(self, loop):
+    @staticmethod
+    def run_forever(loop):
         asyncio.set_event_loop(loop)
         loop.run_forever()
 
 
 loop = asyncio.new_event_loop()
-request = type("request", (), {'method': 'get', 'url': 'http://www.baidu.com', 'verify': False, 'session': None})
+# request = type("request", (), {'method': 'get', 'url': 'http://www.baidu.com', 'verify': False, 'session': None})
 r = Request(request, loop)
-r.mk_session()
+session = r.mk_session()
 tasks = []
 thread = threading.Thread(target=r.run_forever, args=(loop,))
 thread.setDaemon(True)
