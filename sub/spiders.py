@@ -5,59 +5,53 @@ import threading
 
 
 class Request:
-    def __init__(self, request, loop):
-        self.request = request
-        self.loop = loop
-        self.connector = None
 
-    async def quest(self, url, method='get', data=None, json=None, headers=None, params=None,verify=True, proxies=None, allow_redirects=True):
+    async def quest(self, session, method, url, ):
         async with asyncio.Semaphore(200):
-            connector = aiohttp.TCPConnector(ssl=verify)
-            with aiohttp.ClientSession(connector=connector) as session:
-                if method == 'get':
-                    res = await session.get(url, params=params, headers=headers, allow_redirects=allow_redirects)
-                elif method == 'post':
-                    res = await session.post(url, data, json=None, params=None,verify=True, proxies=None)
-                else:
-                    raise
-                session.get()
-                return await res.read(), res
+            res, text = await self.__getattribute__(method)(session, url)
+            return text, res
 
-    def mk_session(self):
-        self.connector = aiohttp.TCPConnector(ssl=self.request.verify)
-        session = aiohttp.ClientSession(connector=self.connector)
+    @staticmethod
+    async def new_session(verify=True):
+        connector = aiohttp.TCPConnector(ssl=verify)
+        session = aiohttp.ClientSession(connector=connector)
         return session
 
-    async def get(self):
-        return await self.request.session.get(self.request.url)
+    @staticmethod
+    async def get(session, request):
+        async with session.get(request) as res:
+            text = await res.read()
+            return res, text
 
     @staticmethod
-    async def get_tasks(coroutine):
-        return await asyncio.create_task(coroutine)
-
-    async def exit(self):
-        await self.request.session.close()
-        await self.connector.close()
+    async def exit(session):
+        await session.close()
 
     @staticmethod
-    def run_forever(loop):
-        asyncio.set_event_loop(loop)
+    def run_forever(loops):
+        asyncio.set_event_loop(loops)
         loop.run_forever()
 
+    @staticmethod
+    def func(future):
+        print(future.result())
 
+
+r = Request()
 loop = asyncio.new_event_loop()
-# request = type("request", (), {'method': 'get', 'url': 'http://www.baidu.com', 'verify': False, 'session': None})
-r = Request(request, loop)
-session = r.mk_session()
+sessions = loop.run_until_complete(r.new_session())
 tasks = []
 thread = threading.Thread(target=r.run_forever, args=(loop,))
 thread.setDaemon(True)
 thread.start()
 f = []
+# sess_loop = asyncio.new_event_loop()
+# sessions = sess_loop.run_until_complete(r.new_session())
+print()
 for i in ['http://www.baidu.com', 'http://www.baidu.com/s?wd=hello', 'http://www.baidu.com/s?wd=xixi']:
     print('消费：', i)
-    f.append(r.quest()))
+    f.append(loop.create_task(r.quest(sessions, method='get', url=i)))
 fs = asyncio.run_coroutine_threadsafe(asyncio.wait(f), loop)
-print(list(map(lambda x: x.result(), list(fs.result()[0]))))
+ret = fs.add_done_callback(r.func)
 print()
-asyncio.run_coroutine_threadsafe(r.request.session.close(), loop)
+asyncio.run_coroutine_threadsafe(r.exit(sessions), loop)
