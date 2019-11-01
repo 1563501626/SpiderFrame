@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 import aiohttp
-import threading
+import chardet
 
 
 class Request:
@@ -28,30 +28,62 @@ class Request:
         await session.close()
 
     @staticmethod
-    def run_forever(loops):
-        asyncio.set_event_loop(loops)
-        loop.run_forever()
-
-    @staticmethod
     def func(future):
         print(future.result())
+        return future.result()
 
 
-r = Request()
-loop = asyncio.new_event_loop()
-sessions = loop.run_until_complete(r.new_session())
-tasks = []
-thread = threading.Thread(target=r.run_forever, args=(loop,))
-thread.setDaemon(True)
-thread.start()
-f = []
-# sess_loop = asyncio.new_event_loop()
-# sessions = sess_loop.run_until_complete(r.new_session())
-print()
-for i in ['http://www.baidu.com', 'http://www.baidu.com/s?wd=hello', 'http://www.baidu.com/s?wd=xixi']:
-    print('消费：', i)
-    f.append(loop.create_task(r.quest(sessions, method='get', url=i)))
-fs = asyncio.run_coroutine_threadsafe(asyncio.wait(f), loop)
-ret = fs.add_done_callback(r.func)
-print()
-asyncio.run_coroutine_threadsafe(r.exit(sessions), loop)
+class Response:
+    def __init__(self, url, content=None, status_code=None, charset=None, cookies=None, method=None,
+                 headers=None, callback="parse", proxies=None, error=None, meta=None):
+        self.url = url
+        self.content = content
+        self.status_code = status_code
+        self.charset = charset
+        self.cookies = cookies
+        self.method = method
+        self.headers = headers
+        self.callback = callback
+        self.proxies = proxies
+        self.error = error
+        self.meta = meta
+        self.text = self._parse_content(charset, content)
+
+    @staticmethod
+    def _parse_content(charset, content):
+        if not content:
+            return
+        if charset:
+            try:
+                text = content.decode(charset)
+            except UnicodeDecodeError:
+                try:
+                    char = chardet.detect(content)
+                    if char:
+                        text = content.decode(char)
+                    else:
+                        raise UnicodeDecodeError
+                except UnicodeDecodeError:
+                    try:
+                        text = content.decode('utf-8')
+                    except UnicodeDecodeError:
+                        try:
+                            text = content.decode("GBK")
+                        except UnicodeDecodeError:
+                            text = content.decode('utf-8', "ignore")
+        else:
+            try:
+                text = content.decode('utf-8')
+            except UnicodeDecodeError:
+                try:
+                    char = chardet.detect(content)
+                    if char:
+                        text = content.decode(char)
+                    else:
+                        raise UnicodeDecodeError
+                except UnicodeDecodeError:
+                    try:
+                        text = content.decode('gb2312')
+                    except UnicodeDecodeError:
+                        text = content.decode('utf-8', "ignore")
+        return text

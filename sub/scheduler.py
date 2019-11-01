@@ -43,6 +43,14 @@ class RabbitMq:
             auto_ack=False)
         channel.start_consuming()
 
+    def del_queue(self, name, if_unused=False, if_empty=False):
+        self.channel.queue_delete(queue=name, if_unused=if_unused, if_empty=if_empty)
+
+    @staticmethod
+    def purge(channel, queue_name):
+        channel.queue_purge(queue_name)
+        print('队列已清空!!!')
+
 
 if __name__ == '__main__':
     r = RabbitMq(type('engine', (), {'mq_user': 'guest', 'mq_pwd': 'guest', 'mq_host': 'localhost', 'mq_port': 5672}))
