@@ -10,10 +10,10 @@ class RabbitMq:
         """初始化"""
         credentials = pika.PlainCredentials(username=self.engine.mq_user, password=self.engine.mq_pwd)
         connector = pika.BlockingConnection(
-            pika.ConnectionParameters(host=self.engine.mq_host, port=self.engine.mq_port, credentials=credentials)
+            pika.ConnectionParameters(host=self.engine.mq_host, port=self.engine.mq_port, credentials=credentials, heartbeat=0),
         )
         channel = connector.channel()
-        return channel
+        return connector, channel
 
     @staticmethod
     def publish(channel, request, queue):
@@ -33,7 +33,7 @@ class RabbitMq:
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     @staticmethod
-    def consume(channel, queue, callback, prefetch_count):
+    def consume(connector, channel, queue, callback, prefetch_count):
         """消费"""
         channel.queue_declare(queue=queue, durable=True)  # 队列持久化
         channel.basic_qos(prefetch_count=prefetch_count)

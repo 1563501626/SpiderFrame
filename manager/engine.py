@@ -2,7 +2,7 @@
 import config
 from sub.scheduler import RabbitMq
 from sub.item_pipline import Database
-from sub.spiders import Request, Response
+from sub.spiders import Request
 
 import json as js
 import asyncio
@@ -20,12 +20,12 @@ class Engine:
         self.sql_user = None
         self.sql_pwd = None
         self.sql_db = None
-        self.async_num = 2
-        # self.way = None
+        self.async_num = 20
+        # self.way = None  # TODO//++++++++++++++++
         self.way = way
         self.queue_name = None
-        self.parse_callback = None
 
+        self.connector = None
         self.channel = None
         self.cursor = None
 
@@ -34,6 +34,7 @@ class Engine:
         self.request = None
         self.session = None
         self.allow_status_code = [200]
+        self.retry = 3
 
     def mq_connection(self):
         mq_conn = RabbitMq(self)
@@ -43,22 +44,30 @@ class Engine:
         sql_conn = Database(self)
         return sql_conn.sql_connection()
 
-    def produce(self, url, method="get", params=None, data=None, json=None, callback='parse', session=None):
+    def produce(self, url, params=None, data=None, json=None, charset=None, cookies=None, method='get', headers=None,
+                callback="parse", proxies=None, time_out=None, allow_redirects=True, meta=None):
         request = {
             'url': url,
-            'method': method,
             'params': params,
             'data': data,
             'json': json,
+            'charset': charset,
+            'cookies': cookies,
+            'method': method,
+            'headers': headers,
             'callback': callback,
-            'session': session,
+            'proxies': proxies,
+            'time_out': time_out,
+            'allow_redirects': allow_redirects,
+            'meta': meta
         }
         RabbitMq.publish(self.channel, js.dumps(request), self.queue_name)
         print("生产：%s" % js.dumps(request))
 
     def consume(self):
-        RabbitMq.consume(self.channel, self.queue_name, callback=self.callback, prefetch_count=self.async_num)
-
+        while True:
+            RabbitMq.consume(self.connector, self.channel, self.queue_name, callback=self.callback, prefetch_count=self.async_num)
+            break
 
     @staticmethod
     def run_forever(loop):
@@ -66,38 +75,37 @@ class Engine:
         loop.run_forever()
 
     def start_request(self):
-        for i in ['http://www.baidu.com', 'http://www.baidu.com/s?wd=hello', 'http://www.baidu.com/s?wd=xixi', 'http://www.baidu.com/s?wd=hello', 'http://www.baidu.com/s?wd=xixi', 'http://www.baidu.com/s?wd=hello', 'http://www.baidu.com/s?wd=xixi']:
-            self.produce(i)
+        for i in range(50):
+            url = 'https://baidu.com'
+            self.produce(url)
 
     def parse(self, response):
-        pass
+        print(response.url)
+        # pass
 
-    def callback(self, ch, method, properties, body):
-        """rabbit_mq回调函数"""
+    async def deal_resp(self, ch, method, properties, body):
         if body:
-            ret = body.decode()
+            result = body.decode()
         else:
             raise
 
+        ret = js.loads(result)
         print('消费：', ret)
-        ret = js.loads(ret)
-        self.parse_callback = ret['callback']
-        coroutine = self.request.quest(self.session, method=ret['method'], url=ret['url'])
-        fs = asyncio.run_coroutine_threadsafe(coroutine, self.loop)
-        fs.add_done_callback(self.func)
 
-        ch.basic_ack(delivery_tag=method.delivery_tag)
+        response = await self.request.quest(self.session, ret)
 
-    def func(self, future):
-        ret = future.result()
-        body = ret[0]
-        res = ret[1]
-        if res.status_code in self.allow_status_code:
-            response = Response(body)
-            if hasattr(self, self.parse_callback):
-                self.__getattribute__(self.parse_callback)(response)
-            else:
-                raise
+        if response.status_code in self.allow_status_code:
+            self.__getattribute__(ret['callback'])(response)
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+        else:
+            print("请求报错!返回状态码：%d" % response.status_code, end=' ')
+            self.produce(ret['url'])  # TODO// ++++++++++++++++++++++++++++++
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+
+    def callback(self, ch, method, properties, body):
+        """rabbit_mq回调函数"""
+        coroutine = self.deal_resp(ch, method, properties, body)
+        asyncio.run_coroutine_threadsafe(coroutine, self.loop)
 
     def main(self):
         """main"""
@@ -107,12 +115,14 @@ class Engine:
             if hasattr(self, i) and getattr(self, i) is None:
                 attr = getattr(config, i)
                 setattr(self, i, attr if attr else None)
+
         self.queue_name = __name__
 
         # 创建连接
-        self.channel = self.mq_connection()
+        self.connector, self.channel = self.mq_connection()
         self.cursor = self.sql_connection()
         print('连接')
+
         # 生产消费
         if self.way and self.way == 'm':
             if self.purge:
@@ -129,8 +139,8 @@ class Engine:
             thread.start()
             self.consume()
 
-            asyncio.run_coroutine_threadsafe(self.request.exit(self.session), self.loop)  # -------------------
-
+            asyncio.run_coroutine_threadsafe(self.request.exit(self.session), self.loop)  # TODO// ++++++++++++++++++++++++++++++
+            thread.join()
         self.channel.close()
         self.cursor.close()
 
