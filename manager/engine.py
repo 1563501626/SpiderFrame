@@ -27,6 +27,9 @@ class Engine:
 
         self.connector = None
         self.channel = None
+        self.cur_queue = None
+        self.if_unused = False
+        self.if_empty = False
         self.cursor = None
 
         self.purge = True
@@ -66,7 +69,8 @@ class Engine:
 
     def consume(self):
         while True:
-            RabbitMq.consume(self.connector, self.channel, self.queue_name, callback=self.callback, prefetch_count=self.async_num)
+
+            RabbitMq.consume(self.channel, self.queue_name, callback=self.callback, prefetch_count=self.async_num)
             break
 
     @staticmethod
@@ -87,8 +91,7 @@ class Engine:
             raise
 
         ret = js.loads(result)
-        print('rabbitmq：{', self.mq_host, self.mq_port, self.mq_user, '}')
-        print('sql：{', self.sql_host, self.sql_port, self.sql_user, self.sql_db, '}')
+        print('消费：', ret)
 
         response = await self.request.quest(self.session, ret)
 
@@ -105,6 +108,13 @@ class Engine:
         coroutine = self.deal_resp(ch, method, properties, body)
         asyncio.run_coroutine_threadsafe(coroutine, self.loop)
 
+    def del_queue(self):
+        while True:
+            count = self.cur_queue.method.message_count
+            print(count)
+            if count == 0:
+                self.channel.queue_delete(queue=self.queue_name, if_unused=self.if_unused, if_empty=self.if_empty)
+
     def main(self):
         """main"""
         # 配置文件初始化
@@ -117,11 +127,13 @@ class Engine:
         # 创建连接
         self.connector, self.channel = self.mq_connection()
         self.cursor = self.sql_connection()
-        print('连接')
+        print('rabbitmq配置：', [self.mq_host, self.mq_port, self.mq_user])
+        print('sql配置：', [self.sql_host, self.sql_port, self.sql_user, self.sql_db])
 
         # 生产消费
+        self.cur_queue = self.channel.queue_declare(queue=self.queue_name, durable=True)
         if self.way and self.way == 'm':
-            self.channel.queue_declare(queue=self.queue_name, durable=True)
+
             if self.purge:
                 RabbitMq.purge(self.channel, self.queue_name)
             else:
@@ -131,10 +143,15 @@ class Engine:
             self.request = Request()
             self.loop = asyncio.new_event_loop()
             self.session = self.loop.run_until_complete(self.request.new_session())
+
             thread = threading.Thread(target=self.run_forever, args=(self.loop,))
             thread.setDaemon(True)
             thread.start()
+
+            delete_thread = threading.Thread(target=self.del_queue)
+            delete_thread.start()
             self.consume()
+            delete_thread.join(30)
 
             asyncio.run_coroutine_threadsafe(self.request.exit(self.session), self.loop)  # TODO// ++++++++++++++++++++++++++++++
         else:
