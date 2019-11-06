@@ -7,10 +7,11 @@ from sub.spiders import Request
 import json as js
 import asyncio
 import threading
+import functools
 
 
 class Engine:
-    def __init__(self, way):
+    def __init__(self, queue_name, way, async_num=1):
         self.mq_host = None
         self.mq_port = None
         self.mq_user = None
@@ -20,10 +21,9 @@ class Engine:
         self.sql_user = None
         self.sql_pwd = None
         self.sql_db = None
-        self.async_num = 20
-        # self.way = None  # TODO//++++++++++++++++
+        self.async_num = async_num
         self.way = way
-        self.queue_name = None
+        self.queue_name = queue_name
 
         self.connector = None
         self.channel = None
@@ -75,13 +75,10 @@ class Engine:
         loop.run_forever()
 
     def start_request(self):
-        for i in range(50):
-            url = 'https://baidu.com'
-            self.produce(url)
+        pass
 
     def parse(self, response):
-        print(response.url)
-        # pass
+        pass
 
     async def deal_resp(self, ch, method, properties, body):
         if body:
@@ -90,17 +87,18 @@ class Engine:
             raise
 
         ret = js.loads(result)
-        print('消费：', ret)
+        print('rabbitmq：{', self.mq_host, self.mq_port, self.mq_user, '}')
+        print('sql：{', self.sql_host, self.sql_port, self.sql_user, self.sql_db, '}')
 
         response = await self.request.quest(self.session, ret)
 
         if response.status_code in self.allow_status_code:
             self.__getattribute__(ret['callback'])(response)
-            ch.basic_ack(delivery_tag=method.delivery_tag)
+            self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
         else:
             print("请求报错!返回状态码：%d" % response.status_code, end=' ')
             self.produce(ret['url'])  # TODO// ++++++++++++++++++++++++++++++
-            ch.basic_ack(delivery_tag=method.delivery_tag)
+            self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
 
     def callback(self, ch, method, properties, body):
         """rabbit_mq回调函数"""
@@ -116,8 +114,6 @@ class Engine:
                 attr = getattr(config, i)
                 setattr(self, i, attr if attr else None)
 
-        self.queue_name = __name__
-
         # 创建连接
         self.connector, self.channel = self.mq_connection()
         self.cursor = self.sql_connection()
@@ -125,6 +121,7 @@ class Engine:
 
         # 生产消费
         if self.way and self.way == 'm':
+            self.channel.queue_declare(queue=self.queue_name, durable=True)
             if self.purge:
                 RabbitMq.purge(self.channel, self.queue_name)
             else:
@@ -140,7 +137,8 @@ class Engine:
             self.consume()
 
             asyncio.run_coroutine_threadsafe(self.request.exit(self.session), self.loop)  # TODO// ++++++++++++++++++++++++++++++
-            thread.join()
+        else:
+            raise
         self.channel.close()
         self.cursor.close()
 

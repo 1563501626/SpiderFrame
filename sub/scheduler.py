@@ -18,7 +18,6 @@ class RabbitMq:
     @staticmethod
     def publish(channel, request, queue):
         """生产"""
-        channel.queue_declare(queue=queue, durable=True)  # 队列持久化
         channel.basic_publish(
             exchange='',
             routing_key=queue,
@@ -38,8 +37,8 @@ class RabbitMq:
         channel.queue_declare(queue=queue, durable=True)  # 队列持久化
         channel.basic_qos(prefetch_count=prefetch_count)
         channel.basic_consume(
-            queue=queue,
             on_message_callback=callback,
+            queue=queue,
             auto_ack=False)
         channel.start_consuming()
 
@@ -57,4 +56,4 @@ if __name__ == '__main__':
     c = r.mq_connection()
     for i in range(10):
         r.publish(c, str(i), 'abcdef')
-    print(r.consume(c, 'abcdef', r.callback, 2))
+    print(r.consume(c, 'abcde'))
