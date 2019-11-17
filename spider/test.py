@@ -7,9 +7,15 @@ class Spider(Engine):
         super(Spider, self).__init__(*args, **kwargs)
 
     def start_request(self):
-        url = 'http://baidu.com'
+
         for i in range(100):
+            # if i % 10 == 0:
+            #     url = 'https://www.google.com'
+            # else:
+            url = 'https://www.aaabaidu.com'
             self.produce(url)
 
     def parse(self, res):
+        import time
+        time.sleep(3)
         print(res.status_code, 'done!')

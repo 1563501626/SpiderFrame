@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import config
-from sub.scheduler import RabbitMq
+from sub.scheduler import RabbitMq, HeartBeat
 from sub.item_pipline import Database
 from sub.spiders import Request
 
@@ -8,6 +8,10 @@ import json as js
 import asyncio
 import threading
 import functools
+import traceback
+import sys
+from retry import retry
+from pika.exceptions import AMQPConnectionError
 
 
 class Engine:
@@ -37,7 +41,7 @@ class Engine:
         self.request = None
         self.session = None
         self.allow_status_code = [200]
-        self.retry = 3
+        self.max_times = 3
 
     def mq_connection(self):
         mq_conn = RabbitMq(self)
@@ -48,7 +52,7 @@ class Engine:
         return sql_conn.sql_connection()
 
     def produce(self, url, params=None, data=None, json=None, charset=None, cookies=None, method='get', headers=None,
-                callback="parse", proxies=None, time_out=None, allow_redirects=True, meta=None):
+                callback="parse", proxies=None, time_out=0.0001, allow_redirects=True, meta=None):
         request = {
             'url': url,
             'params': params,
@@ -67,11 +71,10 @@ class Engine:
         RabbitMq.publish(self.channel, js.dumps(request), self.queue_name)
         print("生产：%s" % js.dumps(request))
 
+    @retry(AMQPConnectionError, delay=5, jitter=(1, 3))
     def consume(self):
-        while True:
-
-            RabbitMq.consume(self.channel, self.queue_name, callback=self.callback, prefetch_count=self.async_num)
-            break
+        self.connector, self.channel = self.mq_connection()
+        RabbitMq.consume(self.channel, self.queue_name, callback=self.callback, prefetch_count=self.async_num, connection=self.connector)
 
     @staticmethod
     def run_forever(loop):
@@ -85,35 +88,44 @@ class Engine:
         pass
 
     async def deal_resp(self, ch, method, properties, body):
-        if body:
-            result = body.decode()
-        else:
-            raise
+        try:
+            if body:
+                result = body.decode()
+            else:
+                raise
 
-        ret = js.loads(result)
-        print('消费：', ret)
+            ret = js.loads(result)
+            ret['allow_code'] = self.allow_status_code
+            print('消费：', ret)
+            # try:
+            response = await self.request.quest(self.session, ret, max_times=self.max_times)
 
-        response = await self.request.quest(self.session, ret)
+            if response and (response.status_code in self.allow_status_code):
+                self.__getattribute__(ret['callback'])(response)
+                self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
+            else:
+                print("请求失败", end=' ')
+                self.produce(ret['url'])  # TODO// ++++++++++++++++++++++++++++++
+                self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
 
-        if response.status_code in self.allow_status_code:
-            self.__getattribute__(ret['callback'])(response)
-            self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
-        else:
-            print("请求报错!返回状态码：%d" % response.status_code, end=' ')
-            self.produce(ret['url'])  # TODO// ++++++++++++++++++++++++++++++
-            self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
+        except Exception:
+            traceback.print_exc()
+            sys.exit(1)
 
     def callback(self, ch, method, properties, body):
         """rabbit_mq回调函数"""
         coroutine = self.deal_resp(ch, method, properties, body)
         asyncio.run_coroutine_threadsafe(coroutine, self.loop)
+    # def del_queue(self):
+    #     while True:
+    #         count = self.cur_queue.method.message_count
+    #         print(count)
+    #         if count == 0:
+    #             self.channel.queue_delete(queue=self.queue_name, if_unused=self.if_unused, if_empty=self.if_empty)
 
-    def del_queue(self):
-        while True:
-            count = self.cur_queue.method.message_count
-            print(count)
-            if count == 0:
-                self.channel.queue_delete(queue=self.queue_name, if_unused=self.if_unused, if_empty=self.if_empty)
+    @retry(AMQPConnectionError, delay=5, jitter=(1, 3))
+    def connect_rabbitmq(self):
+        self.connector, self.channel = self.mq_connection()
 
     def main(self):
         """main"""
@@ -125,7 +137,7 @@ class Engine:
                 setattr(self, i, attr if attr else None)
 
         # 创建连接
-        self.connector, self.channel = self.mq_connection()
+        self.connect_rabbitmq()
         self.cursor = self.sql_connection()
         print('rabbitmq配置：', [self.mq_host, self.mq_port, self.mq_user])
         print('sql配置：', [self.sql_host, self.sql_port, self.sql_user, self.sql_db])
@@ -148,11 +160,9 @@ class Engine:
             thread.setDaemon(True)
             thread.start()
 
-            delete_thread = threading.Thread(target=self.del_queue)
-            delete_thread.start()
+            t2 = HeartBeat(self.connector)
+            t2.start()
             self.consume()
-            delete_thread.join(30)
-
             asyncio.run_coroutine_threadsafe(self.request.exit(self.session), self.loop)  # TODO// ++++++++++++++++++++++++++++++
         else:
             raise

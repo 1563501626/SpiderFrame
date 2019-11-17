@@ -5,6 +5,7 @@ mq_host = 'localhost'
 mq_port = 5672
 mq_user = 'guest'
 mq_pwd = 'guest'
+heart_beat_delay = 2
 
 # mysql
 sql_host = 'localhost'

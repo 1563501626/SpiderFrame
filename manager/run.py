@@ -7,7 +7,7 @@ config = {
 
     'path':'spider/test.py',
     'way':'w',
-    'async_num':20,
+    'async_num':5,
 
 }
 
@@ -22,4 +22,6 @@ def run():
     sp.main()
     print("爬虫结束时间：", datetime.datetime.now())
 
-run()
+
+if __name__ == '__main__':
+    run()
