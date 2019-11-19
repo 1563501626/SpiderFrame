@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
+import sys
+import traceback
 import pika
+import requests
+import json
+import config
 
 
 class RabbitMq:
@@ -17,7 +22,7 @@ class RabbitMq:
 
     @staticmethod
     def publish(channel, request, queue):
-        """生产"""
+        """发布"""
         channel.basic_publish(
             exchange='',
             routing_key=queue,
@@ -41,6 +46,23 @@ class RabbitMq:
             queue=queue,
             auto_ack=False)
         channel.start_consuming()
+
+    @staticmethod
+    def is_empty(queue_name):
+        rabbitmq_host = config.mq_host
+        rabbitmq_user = config.mq_user
+        rabbitmq_pwd = config.mq_pwd
+        rabbitmq_port = 15672
+        res = requests.get(
+            url='http://{}:{}/api/queues/{}/{}'.format(rabbitmq_host, rabbitmq_port, "%2F", queue_name),
+            auth=(rabbitmq_user, rabbitmq_pwd)
+        )
+        res = json.loads(res.content.decode())
+        return int(res["messages"])
+
+    @staticmethod
+    def del_queue(channel, queue_name, if_unused=False, if_empty=True):
+        channel.queue_delete(queue=queue_name, if_unused=if_unused, if_empty=if_empty)
 
     @staticmethod
     def purge(channel, queue_name):

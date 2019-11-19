@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import aiohttp
 import chardet
+import asyncio
+
+from tools.exception import MyException
 
 
 class Response:
@@ -58,19 +61,57 @@ class Response:
         return text
 
 
+class Retry:
+    def __init__(self):
+        self.func = None
+
+    async def run(self, session, request, max_times=3):
+        retry_times = 0
+        max_times = max_times
+        while max_times:
+            try:
+                return await self.func(session, request)
+            except asyncio.TimeoutError:
+                print("第%s次请求超时，url：{%s}" % (retry_times, request['url']))
+                retry_times += 1
+                max_times -= 1
+            except MyException as e:
+                raise e
+            except Exception as e:
+                print("第%s次请求报错{%s}，url：{%s}" % (retry_times, e, request['url']))
+                retry_times += 1
+                max_times -= 1
+
+    def __call__(self, func):
+        self.func = func
+        return self.run
+
+
 class Request:
+    @staticmethod
+    @Retry()
+    async def quest(session, request):
+        if request['method'].upper() == 'GET':
+            async with session.get(request['url'], params=request['params'], cookies=request['cookies'],
+                                   headers=request['headers'], proxy=request['proxies'],
+                                   allow_redirects=request['allow_redirects'], timeout=request['time_out']) as res:
+                text = await res.read()
 
-    async def quest(self, session, request):
-        import asyncio  # TODO// +++++++++++++++++++++++++
-        # with asyncio.Semaphore(200):
+        elif request['method'].upper() == 'POST':
+            async with session.post(request['url'], data=request['data'], json=request['json'],
+                                    cookies=request['cookies'],
+                                    headers=request['headers'], proxy=request['proxies'],
+                                    allow_redirects=request['allow_redirects']) as res:
+                text = await res.read()
+        else:
+            raise MyException("{%s}请求方式未定义，请自定义添加！" % request['method'])
 
-        await asyncio.sleep(2)
-        res, text = await self.__getattribute__(request['method'].lower())(session, request)
-        status_code = res.status
-        charset = res.charset
-        response = Response(request['url'], text, status_code, charset, request['cookies'], request['method'],
-                            request['headers'], request['callback'], request['proxies'])
-        return response
+        if res:
+            status_code = res.status
+            charset = res.charset
+            response = Response(request['url'], text, status_code, charset, request['cookies'], request['method'],
+                                request['headers'], request['callback'], request['proxies'], request['meta'])
+            return response
 
     @staticmethod
     async def new_session(verify=True):
@@ -82,7 +123,7 @@ class Request:
     async def get(session, request):
         async with session.get(request['url'], params=request['params'], cookies=request['cookies'],
                                headers=request['headers'], proxy=request['proxies'],
-                               allow_redirects=request['allow_redirects']) as res:
+                               allow_redirects=request['allow_redirects'], timeout=request['time_out']) as res:
             text = await res.read()
             return res, text
 
