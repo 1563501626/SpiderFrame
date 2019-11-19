@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import config
-from sub.scheduler import RabbitMq
-from sub.item_pipline import Database
+from sub.pipeline import RabbitMq
+from sub.db import Database
 from sub.spiders import Request
 
 import json as js
@@ -182,17 +182,15 @@ class Engine:
                 # time.sleep(0.00002)
                 self.produce(ret)
                 self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
+
         except Exception as e:
             print(e)
             traceback.print_exc()
             sys.exit(1)
 
-    async def before_deal(self, ch, method, properties, body):
-        await self.deal_resp(ch, method, properties, body)
-
     def callback(self, ch, method, properties, body):
         """rabbit_mq回调函数"""
-        coroutine = self.before_deal(ch, method, properties, body)
+        coroutine = self.deal_resp(ch, method, properties, body)
         asyncio.run_coroutine_threadsafe(coroutine, self.loop)
 
     def main(self):

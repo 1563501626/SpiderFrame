@@ -9,33 +9,38 @@ class Spider(Engine):
         super(Spider, self).__init__(*args, **kwargs)
         self.allow_status_code = [404]
         self.headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36'}
+        self.count = 0
+        self.count1 = 0
 
     def start_request(self):
-        for i in range(1, 10):
-            url = 'http://ggzy.dg.gov.cn/ggzy/website/WebPagesManagement/findListByPage?fcInfotype=7&tenderkind=All&projecttendersite=SS&orderFiled=fcInfostartdate&orderValue=desc'
+        for i in range(1, 5):
+            url = 'http://portal.gd-n-tax.gov.cn/siteapps/webpage/gdtax/zdgkml/xxgkml_list.jsp'
             data = {
-                'fcInfotitle': '',
-                'currentPage': '{}'.format(i),
+                'websiteId':'8676232ec118450ba0eff07aa583b54c',
+                'maxPage':'83',
+                'title':'',
+                'c_syh':'',
+                'tc_name':'',
+                'pagination_input': i,
             }
             self.produce(url, method='post', data=data, headers=self.headers)
+            # url = 'https://www.baidu.com'
+            # self.produce(url, callback='parse_detail')
 
     def parse(self, res):
-        ret = json.loads(res.text)
-        content_li = ret["ls"]
-        for i in content_li:
-            title = i["fcInfotitle"]
-            issuetime = i["fcInfostartdate"]
-            fcInfotype = i['fcInfotype']
-            nextid = i['id']
-            meta = {'title':title, 'issuetime':issuetime}
-            url = 'http://ggzy.dg.gov.cn/ggzy/website/WebPagesManagement/jsdetail?publishId={}&fcInfotype={}'.format(nextid, fcInfotype)
-            self.produce(url, headers=self.headers, callback='parse_detail', meta=meta)
+        ret = selector(res.text)
+        li = ret.xpath("//tbody[@id='documentContainer']//a/@href").extract()
+        for i in li:
+            url = 'http://portal.gd-n-tax.gov.cn' + i
+            self.produce(url, headers=self.headers, callback='parse_detail')
+        # self.count1 += 1
+        # print('parse:'+str(res.status_code), self.count1)
 
     def parse_detail(self, res):
         ret = selector(res)
         content = ret.xpath("string(//div[@class='content'])").extract_first()
-        title = res.meta['title']
-        issuetime = res.meta['issuetime']
+        title = ret.xpath("string(//div[@class='title'])").extract_first()
+        issuetime = ret.xpath("//span//a/@href").extract_first()
         bidtype = 0
         if not content:
             print('no content')
@@ -54,4 +59,9 @@ class Spider(Engine):
         print("****************************************************")
         item = ['id', 'title', 'bidtype', 'region', 'issuetime', 'datasource', 'url']
         value = [id, title, bidtype, region, issuetime, datasource, url]
+        time.sleep(3)
         print(dict(zip(item, value)))
+        # self.count += 1
+        # print("parse_detail" + str(res.status_code), self.count)
+        # time.sleep(0.0001)
+        # self.produce(res.url)
