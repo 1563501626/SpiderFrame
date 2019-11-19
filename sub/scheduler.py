@@ -1,22 +1,10 @@
 # -*- coding: utf-8 -*-
+import sys
+import traceback
 import pika
-import threading
+import requests
+import json
 import config
-import time
-
-
-class HeartBeat(threading.Thread):
-    def __init__(self, connection):
-        super(HeartBeat, self).__init__()
-        self.connection = connection
-        self.setDaemon(True)
-        self.delay = config.heart_beat_delay
-
-    def run(self) -> None:
-        while True:
-            time.sleep(self.delay)
-            self.connection.process_data_events()
-            print('heartbeat')
 
 
 class RabbitMq:
@@ -27,14 +15,14 @@ class RabbitMq:
         """初始化"""
         credentials = pika.PlainCredentials(username=self.engine.mq_user, password=self.engine.mq_pwd)
         connector = pika.BlockingConnection(
-            pika.ConnectionParameters(host=self.engine.mq_host, port=self.engine.mq_port, credentials=credentials,  heartbeat=600, blocked_connection_timeout=3000),
+            pika.ConnectionParameters(host=self.engine.mq_host, port=self.engine.mq_port, credentials=credentials, heartbeat=0),
         )
         channel = connector.channel()
         return connector, channel
 
     @staticmethod
     def publish(channel, request, queue):
-        """生产"""
+        """发布"""
         channel.basic_publish(
             exchange='',
             routing_key=queue,
@@ -49,18 +37,32 @@ class RabbitMq:
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     @staticmethod
-    def consume(channel, queue, callback, prefetch_count, connection):
+    def consume(channel, queue, callback, prefetch_count):
         """消费"""
         channel.queue_declare(queue=queue, durable=True)  # 队列持久化
         channel.basic_qos(prefetch_count=prefetch_count)
         channel.basic_consume(
             on_message_callback=callback,
             queue=queue,
-            auto_ack=False,
-            )
-        t1 = HeartBeat(connection=connection)
-        t1.start()
+            auto_ack=False)
         channel.start_consuming()
+
+    @staticmethod
+    def is_empty(queue_name):
+        rabbitmq_host = config.mq_host
+        rabbitmq_user = config.mq_user
+        rabbitmq_pwd = config.mq_pwd
+        rabbitmq_port = 15672
+        res = requests.get(
+            url='http://{}:{}/api/queues/{}/{}'.format(rabbitmq_host, rabbitmq_port, "%2F", queue_name),
+            auth=(rabbitmq_user, rabbitmq_pwd)
+        )
+        res = json.loads(res.content.decode())
+        return int(res["messages"])
+
+    @staticmethod
+    def del_queue(channel, queue_name, if_unused=False, if_empty=True):
+        channel.queue_delete(queue=queue_name, if_unused=if_unused, if_empty=if_empty)
 
     @staticmethod
     def purge(channel, queue_name):
