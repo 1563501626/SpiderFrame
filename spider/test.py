@@ -28,40 +28,41 @@ class Spider(Engine):
             # self.produce(url, callback='parse_detail')
 
     def parse(self, res):
-        ret = selector(res.text)
-        li = ret.xpath("//tbody[@id='documentContainer']//a/@href").extract()
-        for i in li:
-            url = 'http://portal.gd-n-tax.gov.cn' + i
-            self.produce(url, headers=self.headers, callback='parse_detail')
+        # ret = selector(res.text)
+        # li = ret.xpath("//tbody[@id='documentContainer']//a/@href").extract()
+        # for i in li:
+        url = 'https://baidu.com'
+
+        self.produce(url, headers=self.headers, callback='parse_detail')
         # self.count1 += 1
         # print('parse:'+str(res.status_code), self.count1)
 
     def parse_detail(self, res):
-        ret = selector(res)
-        content = ret.xpath("string(//div[@class='content'])").extract_first()
-        title = ret.xpath("string(//div[@class='title'])").extract_first()
-        issuetime = ret.xpath("//span//a/@href").extract_first()
-        bidtype = 0
-        if not content:
-            print('no content')
-            return
-        if not title:
-            title = 'no title'
-        datasource = 'http://ggzy.dg.gov.cn/ggzy/website/WebPagesManagement/jslist?fcInfotype=7&TypeIndex=2&KindIndex=-1'
-        if not issuetime:
-            print('no issuetime')
-        url = res.url
-        if not url:
-            print('no url')
-        id = time.time()
-        region = '东莞市公共资源交易'
-
-        print("****************************************************")
-        item = ['id', 'title', 'bidtype', 'region', 'issuetime', 'datasource', 'url']
-        value = [id, title, bidtype, region, issuetime, datasource, url]
-        time.sleep(3)
-        print(dict(zip(item, value)))
+        # ret = selector(res)
+        # content = ret.xpath("string(//div[@class='content'])").extract_first()
+        # title = ret.xpath("string(//div[@class='title'])").extract_first()
+        # issuetime = ret.xpath("//span//a/@href").extract_first()
+        # bidtype = 0
+        # if not content:
+        #     print('no content')
+        #     return
+        # if not title:
+        #     title = 'no title'
+        # datasource = 'http://ggzy.dg.gov.cn/ggzy/website/WebPagesManagement/jslist?fcInfotype=7&TypeIndex=2&KindIndex=-1'
+        # if not issuetime:
+        #     print('no issuetime')
+        # url = res.url
+        # if not url:
+        #     print('no url')
+        # id = time.time()
+        # region = '东莞市公共资源交易'
+        #
+        # print("****************************************************")
+        # item = ['id', 'title', 'bidtype', 'region', 'issuetime', 'datasource', 'url']
+        # value = [id, title, bidtype, region, issuetime, datasource, url]
+        # print(dict(zip(item, value)))
         # self.count += 1
         # print("parse_detail" + str(res.status_code), self.count)
         # time.sleep(0.0001)
         # self.produce(res.url)
+        print(res.status_code)

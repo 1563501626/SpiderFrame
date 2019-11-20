@@ -7,7 +7,7 @@ config = {
 
     'path':'spider/test.py',
     'way':'w',
-    'async_num':3,
+    'async_num':1,
 
 }
 
