@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-import sys
-import traceback
 import pika
 import requests
 import json

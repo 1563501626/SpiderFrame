@@ -65,12 +65,12 @@ class Retry:
     def __init__(self):
         self.func = None
 
-    async def run(self, session, request, max_times=3):
+    async def run(self, session, request, init_max_times):
         retry_times = 0
-        max_times = max_times
+        max_times = init_max_times
         while max_times:
             try:
-                return await self.func(session, request)
+                return await self.func(session, request, init_max_times)
             except asyncio.TimeoutError:
                 print("第%s次请求超时，url：{%s}" % (retry_times, request['url']))
                 retry_times += 1
@@ -90,7 +90,7 @@ class Retry:
 class Request:
     @staticmethod
     @Retry()
-    async def quest(session, request):
+    async def quest(session, request, max_times):
         if request['method'].upper() == 'GET':
             async with session.get(request['url'], params=request['params'], cookies=request['cookies'],
                                    headers=request['headers'], proxy=request['proxies'],
