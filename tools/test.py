@@ -198,14 +198,19 @@
 # if __name__ == '__main__':
 #     main()
 
-def aa(*args, **kwargs):
-    try:
-        print(args)
-        print(kwargs)
-        1/0
-    except Exception as e:
-        print(e)
-        print(e.args)
+from multiprocessing import Process
+import os
+def a():
+    print(0)
+    1/0
+    # os._exit(1)
+    print(1)
 
+if __name__ == '__main__':
 
-aa()
+    p = Process(target=a)
+    print(p.is_alive())
+    p.start()
+    print(p.is_alive())
+    p.join()
+    print(p.is_alive())

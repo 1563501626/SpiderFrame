@@ -9,7 +9,7 @@ import asyncio
 import threading
 import functools
 import traceback
-import sys
+import os
 import time
 import datetime
 import socket
@@ -64,7 +64,7 @@ class Heartbeat(threading.Thread):
 
 class Engine:
     """引擎"""
-    def __init__(self, queue_name, way, async_num, *args, **kwargs):
+    def __init__(self, queue_name, way, async_num):
         self.mq_host = None
         self.mq_port = None
         self.mq_user = None
@@ -97,10 +97,7 @@ class Engine:
         self.update_machine = None
         self.timeout = None
         self.auto_frequency = -1  # 默认不自动更新
-        if 'cookie_update' in kwargs.keys():
-            self.cookie_update = kwargs['cookie_update']
-        else:
-            self.cookie_update = False  # 默认不自动更新cookie
+        self.cookie_update = False  # 默认不自动更新cookie
 
     def mq_connection(self):
         """rabbitmq连接"""
@@ -173,6 +170,7 @@ class Engine:
 
     @staticmethod
     def before_request(ret):
+        """请求中间件"""
         return ret
 
     async def deal_resp(self, ch, method, properties, ret):
@@ -192,9 +190,17 @@ class Engine:
                 self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
 
         except Exception as e:
-            print(e)
             traceback.print_exc()
-            sys.exit(1)
+            self.deal_error(e)
+
+    def deal_error(self, e):
+        if self.way == 'auto':
+            names = ("error_type", "auto_frequency")
+            values = (e.args[0], -1)
+            db = Database(None)
+            db.update_spider_info(names, values, self.queue_name)
+            print("自动更新报错。")
+        os._exit(1)
 
     def spider_info_init(self):
         """爬虫信息初始化入库"""
@@ -221,6 +227,7 @@ class Engine:
                     names = ('auto_frequency', )
                     values = (self.auto_frequency, )
                 self.db.update_spider_info(names, values, self.queue_name)
+        self.cookie_update = ret['cookie_update']
         cursor.close()
         conn.close()
 
@@ -266,7 +273,7 @@ class Engine:
             else:
                 print("继续生产!!!")
             self.start_request()
-        elif self.way and (self.way == 'w' or self.way == 'auto'):
+        if self.way and (self.way == 'w' or self.way == 'auto'):
             self.request = Request()
             self.loop = asyncio.new_event_loop()
             self.session = self.loop.run_until_complete(self.request.new_session())
@@ -278,7 +285,7 @@ class Engine:
             self.consume()
 
             asyncio.run_coroutine_threadsafe(self.request.exit(self.session), self.loop)
-        else:
+        if not self.way or self.way not in ('m', 'w', 'auto'):
             raise
 
         # 退出并释放资源
