@@ -36,9 +36,13 @@ class Heartbeat(threading.Thread):
             self.flag += 10
             if self.flag % config.get_queue_info_delay == 0:
                 # 负责监听队列，当队列Total==0时，更新自动更新时间并删除队列退出程序
-                if not RabbitMq.is_empty(self.queue_name):
-                    names = ('update_time',)
-                    values = (str(datetime.datetime.now()),)
+                try:
+                    r = RabbitMq.is_empty(self.queue_name)
+                except KeyError:
+                    r = RabbitMq.is_empty(self.queue_name)
+                if not r:
+                    names = ('update_time', 'auto_frequency')
+                    values = (str(datetime.datetime.now()), self.engine.auto_frequency)
                     self.db.update_spider_info(names, values, self.queue_name)
                     RabbitMq.del_queue(self.channel, self.queue_name)
             self.lock.acquire()
@@ -64,7 +68,7 @@ class Heartbeat(threading.Thread):
 
 class Engine:
     """引擎"""
-    def __init__(self, queue_name, way, async_num):
+    def __init__(self, path, queue_name, way, async_num):
         self.mq_host = None
         self.mq_port = None
         self.mq_user = None
@@ -74,6 +78,7 @@ class Engine:
         self.sql_user = None
         self.sql_pwd = None
         self.sql_db = None
+        self.path = path
         self.async_num = async_num
         self.way = way
         self.queue_name = queue_name
@@ -85,6 +90,7 @@ class Engine:
         self.if_empty = False
         self.db = None
         self.pool = None
+        self.init_insql_lock = True
 
         self.purge = True
         self.loop = None
@@ -188,7 +194,6 @@ class Engine:
                 print("请求报错!未返回消息")
                 self.produce(ret)
                 self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
-
         except Exception as e:
             traceback.print_exc()
             self.deal_error(e)
@@ -204,17 +209,14 @@ class Engine:
 
     def spider_info_init(self):
         """爬虫信息初始化入库"""
-        conn = self.db.db_pool(sql_host=config.spider_host, sql_user=config.spider_user, sql_pwd=config.spider_pwd,
-                               sql_db=config.spider_db, sql_port=config.spider_port)
-        cursor = conn.cursor()
-        ret = self.db.select_sql(table=config.spider_table, where=f'queue_name="{self.queue_name}"', one=True, cursor=cursor)
+        ret = self.db.select_sql(table=config.spider_db+'.'+config.spider_table, where=f'queue_name="{self.queue_name}"', one=True)
         if not ret:
             # 首次入库
+            print("初始化", end='')
             now_time = str(datetime.datetime.now())
-            names = ('queue_name', 'auto_frequency', 'cookie_update', 'create_time', 'update_machine')
-            values = (self.queue_name, self.auto_frequency, self.cookie_update, now_time, self.update_machine)
-            self.db.in_sql(config.spider_table, names, values, cursor)
-            conn.commit()
+            names = ('path', 'queue_name', 'auto_frequency', 'cookie_update', 'create_time', 'update_machine')
+            values = (self.path, self.queue_name, -1, self.cookie_update, now_time, self.update_machine)
+            self.db.in_sql(config.spider_db+'.'+config.spider_table, names, values)
         else:
             # 是否存在重要配置更新
             auto_frequency = ret['auto_frequency']
@@ -227,9 +229,7 @@ class Engine:
                     names = ('auto_frequency', )
                     values = (self.auto_frequency, )
                 self.db.update_spider_info(names, values, self.queue_name)
-        self.cookie_update = ret['cookie_update']
-        cursor.close()
-        conn.close()
+            self.cookie_update = ret['cookie_update']
 
     def callback(self, ch, method, properties, body):
         """rabbit_mq回调函数"""

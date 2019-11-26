@@ -69,8 +69,4 @@ class RabbitMq:
 
 
 if __name__ == '__main__':
-    r = RabbitMq(type('engine', (), {'mq_user': 'guest', 'mq_pwd': 'guest', 'mq_host': 'localhost', 'mq_port': 5672}))
-    c = r.mq_connection()
-    for i in range(10):
-        r.publish(c, str(i), 'abcdef')
-    print(r.consume(c, 'abcde'))
+    pass

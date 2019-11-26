@@ -197,20 +197,3 @@
 #
 # if __name__ == '__main__':
 #     main()
-
-from multiprocessing import Process
-import os
-def a():
-    print(0)
-    1/0
-    # os._exit(1)
-    print(1)
-
-if __name__ == '__main__':
-
-    p = Process(target=a)
-    print(p.is_alive())
-    p.start()
-    print(p.is_alive())
-    p.join()
-    print(p.is_alive())

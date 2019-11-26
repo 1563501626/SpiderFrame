@@ -67,5 +67,4 @@ class Spider(Engine):
         # time.sleep(0.0001)
         # self.produce(res.url)
         print(res.status_code)
-        1/0
-        print(self.db.select_sql("mytest", 'name'))
+        # print(self.db.select_sql("mytest", 'name'))

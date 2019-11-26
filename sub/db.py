@@ -25,6 +25,11 @@ class Database:
     def select_sql(self, table, select='*', where=None, one=False, cursor=None, sql=None, term=''):
         """查询"""
         conn = None
+        if '.' in table:
+            db = table.split('.')[0]
+            table = table.split('.')[1]
+            conn = self.db_pool(config.sql_host, config.sql_user, config.sql_pwd, db)
+            cursor = conn.cursor()
         select = str(select).replace("'", '')
         if not cursor:
             pool = self.engine.pool
@@ -36,7 +41,7 @@ class Database:
             else:
                 sql = f"select {select} from {table} " + term
         cursor.execute(sql)
-        col_sql = f"select COLUMN_NAME from information_schema.COLUMNS where table_name = '{table}'"
+        col_sql = f"select COLUMN_NAME from information_schema.COLUMNS where table_name = '{table}' order by ORDINAL_POSITION;"
         if one:
             ret = cursor.fetchone()
         else:
@@ -62,6 +67,11 @@ class Database:
     def in_sql(self, table, names: tuple, values: tuple, cursor=None, sql=None):
         """入库"""
         conn = None
+        if '.' in table:
+            db = table.split('.')[0]
+            table = table.split('.')[1]
+            conn = self.db_pool(config.sql_host, config.sql_user, config.sql_pwd, db)
+            cursor = conn.cursor()
         print("入库：", dict(zip(names, values)))
         names = str(names).replace("'", '')
         values = str(values)
@@ -80,6 +90,11 @@ class Database:
     def update_sql(self, table, names: tuple, values: tuple, where, cursor=None, sql=None):
         """更新"""
         conn = None
+        if '.' in table:
+            db = table.split('.')[0]
+            table = table.split('.')[1]
+            conn = self.db_pool(config.sql_host, config.sql_user, config.sql_pwd, db)
+            cursor = conn.cursor()
         temp = zip(names, values)
         ret = ','.join(list(map(lambda x: f"{x[0]}='{x[1]}'", list(temp))))
         if not cursor:

@@ -5,7 +5,7 @@ mq_host = 'localhost'
 mq_port = 5672
 mq_user = 'guest'
 mq_pwd = 'guest'
-get_queue_info_delay = 60  # 访问队列信息api间隔（单位：s）
+get_queue_info_delay = 10  # 访问队列信息api间隔（单位：s）
 
 # mysql
 sql_host = 'localhost'
@@ -34,7 +34,7 @@ Create Table: CREATE TABLE `spider_update` (
   `queue_name` varchar(20) DEFAULT NULL,
   `async_num` int(11) DEFAULT '1',
   `auto_frequency` float(6,3) DEFAULT '-1.000',
-  `update_machine` varchar(15) NOT NULL,
+  `update_machine` text NOT NULL,
   `cookie_update` tinyint(1) DEFAULT '0',
   `error_type` varchar(100) DEFAULT NULL,
   `create_time` datetime NOT NULL,

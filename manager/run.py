@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from importlib import import_module
 import datetime
-from sub.db import Database
 
 
 config = {
@@ -17,7 +16,7 @@ def auto_run(path, queue_name, way, async_num):
     """自动跟新启动方法"""
     print("爬虫启动时间：", datetime.datetime.now())
     spider_module = import_module(path.replace('/', '.').rstrip('.py'))
-    sp = spider_module.Spider(queue_name, way, async_num)
+    sp = spider_module.Spider(path, queue_name, way, async_num)
     sp.main()
     print("爬虫结束时间：", datetime.datetime.now())
 
@@ -25,6 +24,7 @@ def auto_run(path, queue_name, way, async_num):
 def run(cmd: list = None):
     """手动启动方法"""
     if not cmd:
+        path = config['path']
         queue_name = '_'.join(config['path'].rstrip('.py').split('/')[1:])
         way = config['way']
         async_num = config['async_num']
@@ -43,7 +43,7 @@ def run(cmd: list = None):
             print("命令行格式错误")
             raise
     print("爬虫启动时间：", datetime.datetime.now())
-    sp = spider_module.Spider(queue_name, way, async_num)
+    sp = spider_module.Spider(path, queue_name, way, async_num)
     sp.main()
     print("爬虫结束时间：", datetime.datetime.now())
 
