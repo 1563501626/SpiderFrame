@@ -26,7 +26,7 @@ class AutoUpdate:
 
     def run(self):
         for i in self.gen_data():
-            print(i)
+            print("***************************************************************************************************")
             if not i:
                 continue
             if isinstance(i, list):
@@ -48,13 +48,17 @@ class AutoUpdate:
                 print("最近一次更新时间在：%.3f小时后，稍等片刻···" % (diff_value / 60 / 60))
                 time.sleep(diff_value)
                 break
-            print("***")
             p = Process(target=auto_run, args=(path, queue_name, 'auto', async_num))
             self.pool.append(p)
             p.start()
         for p in self.pool:
+            p.join()
             if p.is_alive():
-                p.join()
+                print('kill process %s' % p.pid())
+                p.terminate()
+            else:
+                self.pool.remove(p)
+            print(self.pool)
 
     def __enter__(self):
         print('begin!')
@@ -62,7 +66,7 @@ class AutoUpdate:
         self.table = config.spider_db + '.' + config.spider_table
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        print(self.pool)
+        print('exit!')
         for p in self.pool:
             if p.is_alive():
                 print('kill process %s' % p.pid())

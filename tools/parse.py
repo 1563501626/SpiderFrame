@@ -18,7 +18,7 @@ except Exception:
 
 from tools.exception import MyExcelException
 import sys
-from docx import Document
+# from docx import Document
 from io import BytesIO
 import pandas as pd
 import xlrd

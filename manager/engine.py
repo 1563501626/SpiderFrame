@@ -36,10 +36,7 @@ class Heartbeat(threading.Thread):
             self.flag += 10
             if self.flag % config.get_queue_info_delay == 0:
                 # 负责监听队列，当队列Total==0时，更新自动更新时间并删除队列退出程序
-                try:
-                    r = RabbitMq.is_empty(self.queue_name)
-                except KeyError:
-                    r = RabbitMq.is_empty(self.queue_name)
+                r = RabbitMq.is_empty(self.queue_name)
                 if not r:
                     names = ('update_time', 'auto_frequency')
                     values = (str(datetime.datetime.now()), self.engine.auto_frequency)

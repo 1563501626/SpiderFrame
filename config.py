@@ -5,7 +5,7 @@ mq_host = 'localhost'
 mq_port = 5672
 mq_user = 'guest'
 mq_pwd = 'guest'
-get_queue_info_delay = 10  # 访问队列信息api间隔（单位：s）
+get_queue_info_delay = 60  # 访问队列信息api间隔（单位：s）
 
 # mysql
 sql_host = 'localhost'

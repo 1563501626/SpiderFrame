@@ -9,7 +9,7 @@ class Spider(Engine):
         super(Spider, self).__init__(*args, **kwargs)
         self.allow_status_code = [404]
         self.headers = {'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36'}
-        self.auto_frequency = 0.01
+        self.auto_frequency = 1/60
         self.count = 0
         self.count1 = 0
 
