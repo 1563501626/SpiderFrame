@@ -271,65 +271,6 @@ def dealcaption(img_banary):
     return text
 
 
-class Captcha:
-    def __init__(self, img_banary):
-        self.t2val = {}
-        self.img = BytesIO(img_banary)
-
-    def twoValue(self, image, G):
-        for y in range(0, image.size[1]):
-            for x in range(0, image.size[0]):
-                g = image.getpixel((x, y))
-                if g > G:
-                    self.t2val[(x, y)] = 1
-                else:
-                    self.t2val[(x, y)] = 0
-
-    def clearNoise(self, image, N, Z):
-        """根据一个点A的RGB值，与周围的8个点的RBG值比较，设定一个值N（0 <N <8），当A的RGB值与周围8个点的RGB相等数小于N时，此点为噪点
-            G: Integer 图像二值化阀值
-            N: Integer 降噪率 0 <N <8
-            Z: Integer 降噪次数
-            输出
-            0：降噪成功
-            1：降噪失败"""
-        for i in range(0, Z):
-            self.t2val[(0, 0)] = 1
-            self.t2val[(image.size[0] - 1, image.size[1] - 1)] = 1
-
-            for x in range(1, image.size[0] - 1):
-                for y in range(1, image.size[1] - 1):
-                    nearDots = 0
-                    L = self.t2val[(x, y)]
-                    if L == self.t2val[(x - 1, y - 1)]:
-                        nearDots += 1
-                    if L == self.t2val[(x - 1, y)]:
-                        nearDots += 1
-                    if L == self.t2val[(x - 1, y + 1)]:
-                        nearDots += 1
-                    if L == self.t2val[(x, y - 1)]:
-                        nearDots += 1
-                    if L == self.t2val[(x, y + 1)]:
-                        nearDots += 1
-                    if L == self.t2val[(x + 1, y - 1)]:
-                        nearDots += 1
-                    if L == self.t2val[(x + 1, y)]:
-                        nearDots += 1
-                    if L == self.t2val[(x + 1, y + 1)]:
-                        nearDots += 1
-
-                    if nearDots < N:
-                        self.t2val[(x, y)] = 1
-
-    def get_cha(self):
-        image = Image.open(self.img).convert("L")
-        self.twoValue(image, 100)
-        self.clearNoise(image, 3, 2)
-        text = pytesseract.image_to_string(image)
-
-        return text
-
-
 class ExcelReader:
     """
     处理表格
