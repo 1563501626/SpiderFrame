@@ -197,3 +197,84 @@
 #
 # if __name__ == '__main__':
 #     main()
+
+
+# def sort(res, first, last):
+#     if first >= last:
+#         return
+#     head = res[first]
+#     first_step = first
+#     last_step = last
+#     while first_step < last_step:
+#         while res[last_step] >= head and first_step < last_step:
+#             last_step -= 1
+#         res[first_step] = res[last_step]
+#         while res[first_step] < head and first_step < last_step:
+#             first_step += 1
+#         res[last_step] = res[first_step]
+#     res[first_step] = head
+#     sort(res, first, first_step-1)
+#     sort(res, first_step+1, last)
+#
+#
+# a = [4, 12, 7, 1, 8, 55, 10]
+# sort(a, 0, len(a)-1)
+# print(a)
+# "iso-8859-1"
+# import requests
+# s = requests.session()
+# headers = {
+# 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36'
+# }
+# u1 = 'http://ghzyj.sh.gov.cn/2011/gcjsxx/xmxx/jsydsp/'
+# res = s.get(u1, headers=headers)
+# js1 = input('js1:')
+# u2 = "http://ghzyj.sh.gov.cn" +js1
+# res1 = s.get(u2)
+# c2 = input('c2:')
+# li2 = c2.split('=')
+# c1 = {li2[0]:li2[1]}
+# requests.utils.add_dict_to_cookiejar(s.cookies,c1)
+# res22 = s.get(u1)
+# for i in range(1, 10):
+#     uu = "http://ghzyj.sh.gov.cn/2011/gcjsxx/xmxx/jsydsp/index_%s.html" % i
+#     respp = s.get(uu)
+#     print(respp.status_code)
+#     if res.status_code != 200:
+#         break
+# print()
+
+"iso-8859-1"
+import requests
+from spider import selector
+import execjs
+s = requests.session()
+headers = {
+'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36'
+}
+u1 = 'http://ghzyj.sh.gov.cn/2011/gcjsxx/xmxx/jsydsp/'
+res = s.get(u1, headers=headers)
+ret = selector(res)
+js1 = ret.xpath("//script[@charset='iso-8859-1']/@src").extract_first()
+content = ret.xpath("//meta[@http-equiv='Content-Type']/following::meta[1]/@content").extract_first()
+func1 = ret.xpath("string(//script[@charset='iso-8859-1']//following::script[1])").extract_first()
+u2 = "http://ghzyj.sh.gov.cn" +js1
+res1 = s.get(u2)
+func2 = res1.content.decode("iso-8859-1")
+with open(r"C:\Users\15635\Desktop\pdd\test.js", 'r', encoding='utf8') as f:
+    js = f.read()
+jsp = execjs.compile(js, cwd=r'C:\Users\15635\AppData\Roaming\npm\node_modules')
+coo = jsp.call("ff1", content, func1, func2)
+
+c2 = coo.split(';')[-1].strip()
+li2 = c2.split('=')
+c1 = {li2[0]:li2[1]}
+requests.utils.add_dict_to_cookiejar(s.cookies,c1)
+res22 = s.get(u1)
+for i in range(1, 10):
+    uu = "http://ghzyj.sh.gov.cn/2011/gcjsxx/xmxx/jsydsp/index_%s.html" % i
+    respp = s.get(uu)
+    print(respp.status_code)
+    if respp.status_code != 200:
+        break
+print()

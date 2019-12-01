@@ -64,6 +64,7 @@ class AutoUpdate:
         print('begin!')
         self.db = Database(None)
         self.table = config.spider_db + '.' + config.spider_table
+        return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print('exit!')
@@ -74,8 +75,7 @@ class AutoUpdate:
 
 
 if __name__ == '__main__':
-    a = AutoUpdate()
-    with a:
+    with AutoUpdate() as a:
         while True:
             a.run()
             time.sleep(1)
