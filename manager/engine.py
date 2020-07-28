@@ -13,6 +13,9 @@ import os
 import time
 import datetime
 import socket
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Heartbeat(threading.Thread):
@@ -49,7 +52,7 @@ class Heartbeat(threading.Thread):
             try:
                 self.connection.process_data_events()  # 一直等待服务段发来的消息
             except Exception as e:
-                print("rabbitmq连接丢失: %s" % (str(e)))
+                logger.info("rabbitmq连接丢失: %s" % (str(e)))
                 self.lock.release()
                 return
             self.lock.release()
@@ -102,6 +105,8 @@ class Engine:
         self.auto_frequency = -1  # 默认不自动更新
         self.cookie_update = False  # 默认不自动更新cookie
 
+        self.start_urls = []
+
     def mq_connection(self):
         """rabbitmq连接"""
         self.rabbit = RabbitMq(self)
@@ -115,6 +120,8 @@ class Engine:
     def produce(self, url, params=None, data=None, json=None, charset=None, cookies=None, method='get', headers=None,
                 callback="parse", proxies=None, allow_redirects=True, meta=None):
         """生产"""
+        if not isinstance(callback, str):
+            callback = callback.__name__
         time.sleep(1*(10**(-5)))
         if isinstance(url, dict):
             ret = url
@@ -148,7 +155,7 @@ class Engine:
                 'meta': meta
             }
         RabbitMq.publish(self.channel, js.dumps(request), self.queue_name)
-        print("生产：%s" % js.dumps(request))
+        logger.info("生产：%s" % js.dumps(request))
 
     def consume(self):
         """消费"""
@@ -163,9 +170,11 @@ class Engine:
         asyncio.set_event_loop(loop)
         loop.run_forever()
 
-    def start_request(self):
+    def start_requests(self):
         """抽象生产函数"""
-        pass
+        if self.start_urls:
+            for url in self.start_urls:
+                self.produce(url)
 
     def parse(self, response):
         """抽象解析函数"""
@@ -184,11 +193,11 @@ class Engine:
                 self.__getattribute__(ret['callback'])(response)
                 self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
             elif response:
-                print("请求失败!返回状态码：%d" % response.status_code)
+                logger.info("请求失败!返回状态码：%d" % response.status_code)
                 self.produce(ret)
                 self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
             else:
-                print("请求报错!未返回消息")
+                logger.info("请求报错!未返回消息")
                 self.produce(ret)
                 self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
         except Exception as e:
@@ -201,7 +210,7 @@ class Engine:
             values = (e.args[0], -1)
             db = Database(None)
             db.update_spider_info(names, values, self.queue_name)
-            print("自动更新报错。")
+            logger.info("自动更新报错。")
         os._exit(1)
 
     def spider_info_init(self):
@@ -209,7 +218,7 @@ class Engine:
         ret = self.db.select_sql(table=config.spider_db+'.'+config.spider_table, where=f'queue_name="{self.queue_name}"', one=True)
         if not ret:
             # 首次入库
-            print("初始化", end='')
+            logger.info("初始化.")
             now_time = str(datetime.datetime.now())
             names = ('path', 'queue_name', 'auto_frequency', 'cookie_update', 'create_time', 'update_machine')
             values = (self.path, self.queue_name, -1, self.cookie_update, now_time, self.update_machine)
@@ -228,6 +237,11 @@ class Engine:
                 self.db.update_spider_info(names, values, self.queue_name)
             self.cookie_update = ret['cookie_update']
 
+    def pipeline(self, item):
+        pipelineObj = getattr(self, "pipelineObj")
+        ret = pipelineObj.process_item(item, self)
+        logger.info(ret)
+
     def callback(self, ch, method, properties, body):
         """rabbit_mq回调函数"""
         if body:
@@ -237,7 +251,7 @@ class Engine:
         ret = js.loads(result)
         ret = self.before_request(ret)
         ret['time_out'] = self.timeout
-        print('消费：', ret)
+        logger.info('消费：%s' % ret)
 
         coroutine = self.deal_resp(ch, method, properties, ret)
         asyncio.run_coroutine_threadsafe(coroutine, self.loop)
@@ -254,12 +268,12 @@ class Engine:
         # 创建连接
         self.connector, self.channel = self.mq_connection()
         self.pool = self.sql_connection()
-        print('rabbitmq配置：', [self.mq_host, self.mq_port, self.mq_user])
-        print('sql配置：', [self.sql_host, self.sql_port, self.sql_user, self.sql_db])
+        logger.info('rabbitmq配置：%s' % [self.mq_host, self.mq_port, self.mq_user])
+        logger.info('sql配置：%s' % [self.sql_host, self.sql_port, self.sql_user, self.sql_db])
 
         # 脚本信息入库
         self.update_machine = socket.gethostbyname(socket.gethostname())
-        print("本机ip为：", self.update_machine)
+        logger.info("本机ip为：%s" % self.update_machine)
         self.spider_info_init()
 
         # 生产消费
@@ -268,8 +282,8 @@ class Engine:
             if self.purge:
                 RabbitMq.purge(self.channel, self.queue_name)
             else:
-                print("继续生产!!!")
-            self.start_request()
+                logger.info("继续生产!!!")
+            self.start_requests()
         if self.way and (self.way == 'w' or self.way == 'auto'):
             self.request = Request()
             self.loop = asyncio.new_event_loop()
@@ -291,7 +305,7 @@ class Engine:
 
 
 if __name__ == '__main__':
-    print("""
+    logger.info("""
         engine.py为项目的主干，负责将控制数据的走向，与其他组件保持低耦合度，
         具有良好的扩展性，只需将扩展程序放入main函数即可注册到项目流程中。
         """)

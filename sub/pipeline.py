@@ -3,6 +3,9 @@ import pika
 import requests
 import json
 import config
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class RabbitMq:
@@ -31,7 +34,7 @@ class RabbitMq:
     @staticmethod
     def callback(ch, method, properties, body):
         """回调函数"""
-        print(body)
+        logger.info(body)
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     @staticmethod
@@ -65,7 +68,7 @@ class RabbitMq:
     @staticmethod
     def purge(channel, queue_name):
         channel.queue_purge(queue_name)
-        print('队列已清空!!!')
+        logger.info('队列已清空!!!')
 
 
 if __name__ == '__main__':

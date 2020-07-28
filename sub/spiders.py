@@ -4,6 +4,9 @@ import chardet
 import asyncio
 
 from tools.exception import MyException
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Response:
@@ -72,13 +75,13 @@ class Retry:
             try:
                 return await self.func(session, request, init_max_times)
             except asyncio.TimeoutError:
-                print("第%s次请求超时，url：{%s}" % (retry_times, request['url']))
+                logger.info("第%s次请求超时，url：{%s}" % (retry_times, request['url']))
                 retry_times += 1
                 max_times -= 1
             except MyException as e:
                 raise e
             except Exception as e:
-                print("第%s次请求报错{%s}，url：{%s}" % (retry_times, e, request['url']))
+                logger.info("第%s次请求报错{%s}，url：{%s}" % (retry_times, e, request['url']))
                 retry_times += 1
                 max_times -= 1
 
@@ -141,5 +144,5 @@ class Request:
 
     @staticmethod
     def func(future):
-        print(future.result())
+        logger.info(future.result())
         return future.result()

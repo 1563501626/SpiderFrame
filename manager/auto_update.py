@@ -6,6 +6,9 @@ import config
 from multiprocessing import Process
 import datetime
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AutoUpdate:
@@ -26,7 +29,7 @@ class AutoUpdate:
 
     def run(self):
         for i in self.gen_data():
-            print("***************************************************************************************************")
+            logger.info("***************************************************************************************************")
             if not i:
                 continue
             if isinstance(i, list):
@@ -45,7 +48,7 @@ class AutoUpdate:
                 diff_value = (now_time - update_time).seconds
                 if diff_value < 0:
                     break
-                print("最近一次更新时间在：%.3f小时后，稍等片刻···" % (diff_value / 60 / 60))
+                logger.info("最近一次更新时间在：%.3f小时后，稍等片刻···" % (diff_value / 60 / 60))
                 time.sleep(diff_value)
                 break
             p = Process(target=auto_run, args=(path, queue_name, 'auto', async_num))
@@ -54,23 +57,23 @@ class AutoUpdate:
         for p in self.pool:
             p.join()
             if p.is_alive():
-                print('kill process %s' % p.pid())
+                logger.info('kill process %s' % p.pid())
                 p.terminate()
             else:
                 self.pool.remove(p)
-            print(self.pool)
+            logger.info(self.pool)
 
     def __enter__(self):
-        print('begin!')
+        logger.info('begin!')
         self.db = Database(None)
         self.table = config.spider_db + '.' + config.spider_table
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        print('exit!')
+        logger.info('exit!')
         for p in self.pool:
             if p.is_alive():
-                print('kill process %s' % p.pid())
+                logger.info('kill process %s' % p.pid())
                 p.terminate()  # 关闭孤儿进程
 
 

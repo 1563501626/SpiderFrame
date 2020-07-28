@@ -12,7 +12,7 @@ sql_host = 'localhost'
 sql_port = 3306
 sql_user = 'root'
 sql_pwd = '123456'
-sql_db = 'frametest'
+sql_db = 'spider_info'
 
 # 爬虫配置信息
 spider_host = 'localhost'
