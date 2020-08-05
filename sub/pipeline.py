@@ -16,7 +16,18 @@ class RabbitMq:
         """初始化"""
         credentials = pika.PlainCredentials(username=self.engine.mq_user, password=self.engine.mq_pwd)
         connector = pika.BlockingConnection(
-            pika.ConnectionParameters(host=self.engine.mq_host, port=self.engine.mq_port, credentials=credentials, heartbeat=0),
+            pika.ConnectionParameters(host=self.engine.mq_host, port=self.engine.mq_port, credentials=credentials,
+                                      heartbeat=0),
+        )
+        channel = connector.channel()
+        return connector, channel
+
+    @staticmethod
+    def mq_connection_from_config():
+        credentials = pika.PlainCredentials(username=config.mq_user, password=config.mq_pwd)
+        connector = pika.BlockingConnection(
+            pika.ConnectionParameters(host=config.mq_host, port=config.mq_port, credentials=credentials,
+                                      heartbeat=0),
         )
         channel = connector.channel()
         return connector, channel
@@ -30,6 +41,17 @@ class RabbitMq:
             body=request,
             properties=pika.BasicProperties(delivery_mode=2)  # 消息持久化
         )
+
+    def sure_conn(self, queue, connector, channel):
+        if not channel:
+            return connector, channel
+        try:
+            channel.queue_declare(queue=queue, durable=True)
+        except Exception as e:
+            connector, channel = self.mq_connection()
+            channel.queue_declare(queue=queue, durable=True)
+            print('pika超时，已重连！')
+        return connector, channel
 
     @staticmethod
     def callback(ch, method, properties, body):
@@ -59,6 +81,9 @@ class RabbitMq:
             auth=(rabbitmq_user, rabbitmq_pwd)
         )
         res = json.loads(res.content.decode())
+        print(res)
+        if "messages" not in res.keys():
+            return 0
         return int(res["messages"])
 
     @staticmethod

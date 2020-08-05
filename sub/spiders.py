@@ -2,6 +2,8 @@
 import aiohttp
 import chardet
 import asyncio
+import parsel
+from urllib.parse import urljoin
 
 from tools.exception import MyException
 import logging
@@ -11,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class Response:
     def __init__(self, url, content=None, status_code=None, charset=None, cookies=None, method=None,
-                 headers=None, callback="parse", proxies=None, meta=None):
+                 headers=None, callback="parse", proxies=None, meta=None, res=None):
         self.url = url
         self.content = content
         self.status_code = status_code
@@ -22,6 +24,7 @@ class Response:
         self.callback = callback
         self.proxies = proxies
         self.meta = meta
+        self.res = res
         self.text = self._parse_content(charset, content)
 
     @staticmethod
@@ -35,7 +38,7 @@ class Response:
                 try:
                     char = chardet.detect(content)
                     if char:
-                        text = content.decode(char)
+                        text = content.decode(char['encoding'])
                     else:
                         raise UnicodeDecodeError
                 except UnicodeDecodeError:
@@ -62,6 +65,17 @@ class Response:
                     except UnicodeDecodeError:
                         text = content.decode('utf-8', "ignore")
         return text
+
+    def xpath(self, x):
+        r = parsel.Selector(self.text)
+        return r.xpath(x)
+
+    def css(self, x):
+        r = parsel.Selector(self.text)
+        return r.css(x)
+
+    def urljoin(self, url):
+        return urljoin(self.url, url)
 
 
 class Retry:
@@ -113,7 +127,7 @@ class Request:
             status_code = res.status
             charset = res.charset
             response = Response(request['url'], text, status_code, charset, request['cookies'], request['method'],
-                                request['headers'], request['callback'], request['proxies'], request['meta'])
+                                request['headers'], request['callback'], request['proxies'], request['meta'], res)
             return response
 
     @staticmethod
