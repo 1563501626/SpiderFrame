@@ -4,18 +4,22 @@ import chardet
 import asyncio
 import parsel
 from urllib.parse import urljoin
+from yarl import URL
 
 from tools.exception import MyException
 import logging
 
 logger = logging.getLogger(__name__)
 
+from w3lib.encoding import (html_body_declared_encoding, html_to_unicode,
+                            http_content_type_encoding, resolve_encoding)
+
 
 class Response:
     def __init__(self, url, content=None, status_code=None, charset=None, cookies=None, method=None,
                  headers=None, callback="parse", proxies=None, meta=None, res=None):
         self.url = url
-        self.content = content
+        self.body = self.content = content
         self.status_code = status_code
         self.charset = charset
         self.cookies = cookies
@@ -25,45 +29,52 @@ class Response:
         self.proxies = proxies
         self.meta = meta
         self.res = res
-        self.text = self._parse_content(charset, content)
 
-    @staticmethod
-    def _parse_content(charset, content):
-        if not content:
+    @property
+    def text(self):
+        if not self.content:
             return
-        if charset:
+        if self.charset:
             try:
-                text = content.decode(charset)
+                text = self.content.decode(self.charset)
             except UnicodeDecodeError:
                 try:
-                    char = chardet.detect(content)
-                    if char:
-                        text = content.decode(char['encoding'])
+                    benc = http_content_type_encoding(dict(self.res.headers)['Content-Type'])
+                    if benc:
+                        charset = 'charset=%s' % benc
+                        text = html_to_unicode(charset, self.body)[1]
                     else:
                         raise UnicodeDecodeError
                 except UnicodeDecodeError:
                     try:
-                        text = content.decode('utf-8')
+                        char = chardet.detect(self.content)
+                        if char:
+                            text = self.content.decode(char['encoding'])
+                        else:
+                            raise UnicodeDecodeError
                     except UnicodeDecodeError:
                         try:
-                            text = content.decode("GBK")
+                            text = self.content.decode('utf-8')
                         except UnicodeDecodeError:
-                            text = content.decode('utf-8', "ignore")
+                            try:
+                                text = self.content.decode("GBK")
+                            except UnicodeDecodeError:
+                                text = self.content.decode('utf-8', "ignore")
         else:
             try:
-                text = content.decode('utf-8')
+                text = self.content.decode('utf-8')
             except UnicodeDecodeError:
                 try:
-                    char = chardet.detect(content)
+                    char = chardet.detect(self.content)
                     if char:
-                        text = content.decode(char)
+                        text = self.content.decode(char['encoding'])
                     else:
                         raise UnicodeDecodeError
                 except UnicodeDecodeError:
                     try:
-                        text = content.decode('gb2312')
+                        text = self.content.decode('gb2312')
                     except UnicodeDecodeError:
-                        text = content.decode('utf-8', "ignore")
+                        text = self.content.decode('utf-8', "ignore")
         return text
 
     def xpath(self, x):
@@ -109,16 +120,15 @@ class Request:
     @Retry()
     async def quest(session, request, max_times):
         if request['method'].upper() == 'GET':
-            async with session.get(request['url'], params=request['params'], cookies=request['cookies'],
-                                   headers=request['headers'], proxy=request['proxies'],
+            async with session.get(URL(request['url'], encoded=request.get('url_encoded', False)), params=request['params'],
+                                   cookies=request['cookies'], headers=request['headers'], proxy=request['proxies'],
                                    allow_redirects=request['allow_redirects'], timeout=request['time_out']) as res:
                 text = await res.read()
 
         elif request['method'].upper() == 'POST':
-            async with session.post(request['url'], data=request['data'], json=request['json'],
-                                    cookies=request['cookies'],
-                                    headers=request['headers'], proxy=request['proxies'],
-                                    allow_redirects=request['allow_redirects']) as res:
+            async with session.post(URL(request['url'], encoded=request.get('url_encoded', False)), data=request['data'],
+                                    json=request['json'], cookies=request['cookies'], headers=request['headers'],
+                                    proxy=request['proxies'], allow_redirects=request['allow_redirects']) as res:
                 text = await res.read()
         else:
             raise MyException("{%s}请求方式未定义，请自定义添加！" % request['method'])

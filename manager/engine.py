@@ -74,7 +74,7 @@ class DaemonRun(threading.Thread):
         self.connector, self.channel = RabbitMq.mq_connection_from_config()
         self.func = func
         self.loop = loop
-        self.setDaemon = True
+        self.setDaemon(True)
 
     def run(self) -> None:
         self.func(self.loop)
@@ -136,7 +136,7 @@ class Engine:
         return self.spider_db.db_pool()
 
     def produce(self, url, params=None, data=None, json=None, charset=None, cookies=None, method='get', headers=None,
-                callback="parse", proxies=None, allow_redirects=True, meta=None):
+                callback="parse", proxies=None, allow_redirects=True, meta=None, url_encoded=False):
         """生产"""
         if not isinstance(callback, str):
             callback = callback.__name__
@@ -154,7 +154,8 @@ class Engine:
                 'callback': ret['callback'],
                 'proxies': ret['proxies'],
                 'allow_redirects': ret['allow_redirects'],
-                'meta': ret['meta']
+                'meta': ret['meta'],
+                'url_encoded': True if '%' in ret['url'] else False
             }
         else:
             request = {
@@ -169,7 +170,8 @@ class Engine:
                 'callback': callback,
                 'proxies': proxies,
                 'allow_redirects': allow_redirects,
-                'meta': meta
+                'meta': meta,
+                'url_encoded':  True if '%' in url else False
             }
         if self.thread:
             self.rabbit.publish(self.thread.channel, js.dumps(request), self.queue_name)
@@ -224,12 +226,14 @@ class Engine:
                 self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
             elif response:
                 logger.info("请求失败!返回状态码：%d,返回队列%s" % (response.status_code, ret))
-                # self.produce(ret)
-                self.connector.add_callback_threadsafe(functools.partial(ch.basic_nack, method.delivery_tag))
+                self.produce(ret)
+                # self.connector.add_callback_threadsafe(functools.partial(ch.basic_nack, method.delivery_tag))
+                self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
             else:
                 logger.info("请求报错!未返回消息,返回队列%s" % ret)
-                # self.produce(ret)
-                self.connector.add_callback_threadsafe(functools.partial(ch.basic_nack, method.delivery_tag))
+                self.produce(ret)
+                # self.connector.add_callback_threadsafe(functools.partial(ch.basic_nack, method.delivery_tag))
+                self.connector.add_callback_threadsafe(functools.partial(ch.basic_ack, method.delivery_tag))
         except Exception as e:
             traceback.print_exc()
             self.deal_error(e)

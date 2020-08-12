@@ -42,6 +42,7 @@ def ocr_des(img_bytes):
     img = img.point(lambda x: 255 if x >= 70 else 0)
     img.show()
     return pytesseract.image_to_string(img)
+    # return pytesseract.image_to_string(img, lang='chi_sim')
 
 
 if __name__ == '__main__':

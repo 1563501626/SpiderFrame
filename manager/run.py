@@ -2,8 +2,8 @@
 from importlib import import_module
 import datetime
 import logging
-import sys
-sys.path.append(r"C:\Users\Dell\Desktop\spider_code")
+import sys, os
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S')

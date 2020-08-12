@@ -20,10 +20,10 @@ class BeiAnPipeline(object):
 
     def open_spider(self, spider):
         if hasattr(spider, "filter_data") and spider.filter_data:
-            attr = ["filter_db", "filter_table"]
-            for i in attr:
-                if not hasattr(spider, i):
-                    raise Exception("数据去重配置未完善.")
+            if not hasattr(spider, "filter_db"):
+                setattr(spider, "filter_db", "duplicate_key")
+            if not hasattr(spider, "filter_table"):
+                setattr(spider, "filter_table", "beian_%s" % spider.name.replace("-", "_"))
             spider.filter_conn = MySql(self.host, spider.filter_db, self.username, self.password, self.port)
 
     def process_item(self, item, spider):
@@ -31,18 +31,20 @@ class BeiAnPipeline(object):
         if hasattr(spider, "filter_data") and spider.filter_data:
             md5 = items['md5']
             items.pop('md5')
-            rest = spider.filter_conn.get("select md5 from %s where md5='%s'" % (spider.filter_table, md5))
+            rest = spider.filter_conn.get("select `md5` from %s where md5='%s'" % (spider.filter_table, md5))
             if not rest:
                 items['spider_name'] = spider.name
                 self.db.insert('beian_all', items)
                 spider.filter_conn.insert(spider.filter_table, {"md5": md5})
                 aa = items
+                self.count += 1
             else:
                 aa = "数据重复，已过滤."
         else:
             items['spider_name'] = spider.name
             self.db.insert('beian_all', items)
             aa = items
+            self.count += 1
         company_name = items["企业名称"]
         company_name_md5 = ezfuc.md5(company_name)
         ret = self.db1.get("select md5 from company_md5 where md5='%s'" % company_name_md5)
@@ -50,18 +52,19 @@ class BeiAnPipeline(object):
             pass
             self.db1.insert("company_name", {"企业名称": company_name})
             self.db1.insert("company_md5", {"md5": company_name_md5})
-        self.count += 1
+
         return aa
 
     def close_spider(self, spider):
-        if hasattr(spider, "total_count"):
-            names = ('update_time', 'total_count', 'crawl_count')
-            values = (str(datetime.datetime.now()), spider.total_count, self.count)
-            spider.spider_db.update_spider_info(names, values, spider.queue_name)
-        else:
-            names = ('update_time', 'crawl_count')
-            values = (str(datetime.datetime.now()), self.count)
-            spider.spider_db.update_spider_info(names, values, spider.queue_name)
+        if spider.way != 'm':
+            if hasattr(spider, "total_count"):
+                names = ('update_time', 'total_count', 'crawl_count')
+                values = (str(datetime.datetime.now()), spider.total_count, self.count)
+                spider.spider_db.update_spider_info(names, values, spider.queue_name)
+            else:
+                names = ('update_time', 'crawl_count')
+                values = (str(datetime.datetime.now()), self.count)
+                spider.spider_db.update_spider_info(names, values, spider.queue_name)
         self.db.close()
         self.db1.close()
         if hasattr(spider, "filter_data") and spider.filter_data:
@@ -147,14 +150,24 @@ class CreditPipeline(object):
             if not rest:
                 self.db.insert(spider.name.replace("-", '_'), items)
                 spider.filter_conn.insert(spider.filter_table, {"md5": md5})
+                self.count += 1
             else:
                 items = "数据重复，已过滤."
         else:
             self.db.insert(spider.name.replace("-", '_'), items)
-        self.count += 1
+            self.count += 1
         return items
 
     def close_spider(self, spider):
+        if spider.way != 'm':
+            if hasattr(spider, "total_count"):
+                names = ('update_time', 'total_count', 'crawl_count')
+                values = (str(datetime.datetime.now()), spider.total_count, self.count)
+                spider.spider_db.update_spider_info(names, values, spider.queue_name)
+            else:
+                names = ('update_time', 'crawl_count')
+                values = (str(datetime.datetime.now()), self.count)
+                spider.spider_db.update_spider_info(names, values, spider.queue_name)
         self.db.close()
         self.db1.close()
         if hasattr(spider, "filter_data") and spider.filter_data:
