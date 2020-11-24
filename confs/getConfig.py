@@ -30,9 +30,16 @@ def company_name_db():
 
 def conn(database):
     gConfig = get_config()
-    host = gConfig['hostname']
-    username = gConfig['user']
-    password = gConfig['password']
-    port = int(gConfig['port'])
+    host = gConfig.sql_host
+    username = gConfig.sql_user
+    password = gConfig.sql_pwd
+    port = 3306
     db = MySql(host, database, username, password, port)
     return db
+
+
+def get_company_from_txt(name):
+    abs_path = os.path.dirname(os.path.dirname(__file__))
+    with open(abs_path + r"\libs\%s" % name, 'r', encoding='utf8') as f:
+        lines = f.read().replace('\ufeff', '').split('\n')
+    return lines

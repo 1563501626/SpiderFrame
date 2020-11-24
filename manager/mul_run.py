@@ -1,1 +1,0 @@
-from manager.run import auto_run
