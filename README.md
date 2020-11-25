@@ -15,8 +15,8 @@
 
 - 修复pika多个线程共用一个rabbitmq连接而导致'pop from an empty deque'的问题
 - 修复windows下aiohttp不支持https代理的问题
-- 因业务需要，本框架支持scrapy下的原生爬虫代码运行，只需要替换继承的基类，以及启动方式有所改变，还在持续更新中...，详见[SpiderFrame/spider_code/example](https://github.com/1563501626/SpiderFrame/spider_code/example)
-- 启动方式更新，详见[SpiderFrame/spider_code/example](https://github.com/1563501626/SpiderFrame/spider_code/example)
+- 因业务需要，本框架支持scrapy下的原生爬虫代码运行，只需要替换继承的基类，以及启动方式有所改变，还在持续更新中...，详见[SpiderFrame/spider_code/example](./spider_code/example)
+- 启动方式更新，详见[SpiderFrame/spider_code/example](./spider_code/example)
 - 重写scrapy.spiderloader.SpiderLoader，每个爬虫name属性绑定，当前目录下的所有文件name为唯一，不得出现重复name
-- 增加优先级队列，通过priority_queue=True属性开启优先级队列，每个请求通过priority指定当前优先级，详见[SpiderFrame/spider_code/example/priorityExample.py](https://github.com/1563501626/SpiderFrame/spider_code/example/priorityExample.py)
-- 当队列消费完后，程序不会自动停止，新增自动删除空队列的程序，详见[SpiderFrame/tools/rabbitmq_client_test.py](https://github.com/1563501626/SpiderFrame/tools/rabbitmq_client_test.py)
+- 增加优先级队列，通过priority_queue=True属性开启优先级队列，每个请求通过priority指定当前优先级，详见[SpiderFrame/spider_code/example/priorityExample.py](./spider_code/example/priorityExample.py)
+- 当队列消费完后，程序不会自动停止，新增自动删除空队列的程序，详见[SpiderFrame/tools/rabbitmq_client_test.py](./tools/rabbitmq_client_test.py)
