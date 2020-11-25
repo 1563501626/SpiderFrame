@@ -21,7 +21,7 @@ def iter_spider_classes(module):
 
 class SpiderLoader:
     """
-    SpiderLoader is a class which locates and loads spiders
+    SpiderLoader is a class which locates and loads spider_code
     in a Scrapy project.
     """
     def __init__(self, settings):
@@ -38,7 +38,7 @@ class SpiderLoader:
                  for name, locations in self._found.items()
                  if len(locations) > 1]
         if dupes:
-            msg = ("There are several spiders with the same name:\n\n"
+            msg = ("There are several spider_code with the same name:\n\n"
                    "{}\n\n  This can cause unexpected behavior.".format(
                         "\n\n".join(dupes)))
             warnings.warn(msg, UserWarning)
@@ -55,7 +55,7 @@ class SpiderLoader:
                     self._load_spiders(module)
             except ImportError as e:
                 if self.warn_only:
-                    msg = ("\n{tb}Could not load spiders from module '{modname}'. "
+                    msg = ("\n{tb}Could not load spider_code from module '{modname}'. "
                            "See above traceback for details.".format(
                                 modname=name, tb=traceback.format_exc()))
                     warnings.warn(msg, RuntimeWarning)
@@ -86,6 +86,6 @@ class SpiderLoader:
 
     def list(self):
         """
-        Return a list with the names of all spiders available in the project.
+        Return a list with the names of all spider_code available in the project.
         """
         return list(self._spiders.keys())

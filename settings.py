@@ -2,8 +2,8 @@
 
 # BOT_NAME = 'example'
 #
-# SPIDER_MODULES = ['example.spiders']
-# NEWSPIDER_MODULE = 'example.spiders'
+# SPIDER_MODULES = ['example.spider_code']
+# NEWSPIDER_MODULE = 'example.spider_code'
 
 # LOG_LEVEL = 'DEBUG'
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
